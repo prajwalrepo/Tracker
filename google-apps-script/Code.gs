@@ -18,6 +18,10 @@ function doPost(e) {
       upsertTask(spreadsheet, payload);
     } else if (type === "trade") {
       upsertTrade(spreadsheet, payload);
+    } else if (type === "portfolio") {
+      upsertPortfolio(spreadsheet, payload);
+    } else if (type === "stock") {
+      upsertStock(spreadsheet, payload);
     } else {
       throw new Error("Unsupported entry type.");
     }
@@ -32,9 +36,10 @@ function doPost(e) {
 }
 
 function upsertHabit(spreadsheet, payload) {
-  var sheet = ensureSheet(spreadsheet, "Habits", ["ID", "Habit", "Start Time", "End Time", "Completions", "Deleted", "Created At"]);
+  var sheet = ensureSheet(spreadsheet, "Habits", ["ID", "Owner Email", "Habit", "Start Time", "End Time", "Completions", "Deleted", "Created At"]);
   upsertById(sheet, payload.id, [
     payload.id || "",
+    payload.ownerEmail || "",
     payload.name || "",
     payload.startTime || "",
     payload.endTime || "",
@@ -45,9 +50,10 @@ function upsertHabit(spreadsheet, payload) {
 }
 
 function upsertTask(spreadsheet, payload) {
-  var sheet = ensureSheet(spreadsheet, "Tasks", ["ID", "Task", "Completion Time", "Notes", "Completed", "Completed At", "Deleted", "Created At"]);
+  var sheet = ensureSheet(spreadsheet, "Tasks", ["ID", "Owner Email", "Task", "Completion Time", "Notes", "Completed", "Completed At", "Deleted", "Created At"]);
   upsertById(sheet, payload.id, [
     payload.id || "",
+    payload.ownerEmail || "",
     payload.title || "",
     payload.completionTime || "",
     payload.notes || "",
@@ -64,9 +70,10 @@ function upsertTrade(spreadsheet, payload) {
     achievedValue = payload.actualPnl;
   }
 
-  var sheet = ensureSheet(spreadsheet, "Trades", ["ID", "Date", "Target PnL", "Achieved PnL", "Achieved Percent", "Deleted", "Created At"]);
+  var sheet = ensureSheet(spreadsheet, "Trades", ["ID", "Owner Email", "Date", "Target PnL", "Achieved PnL", "Achieved Percent", "Deleted", "Created At"]);
   upsertById(sheet, payload.id, [
     payload.id || "",
+    payload.ownerEmail || "",
     payload.date || "",
     payload.target || 0,
     achievedValue || 0,
@@ -74,6 +81,85 @@ function upsertTrade(spreadsheet, payload) {
     payload.deleted ? "Yes" : "No",
     payload.createdAt || ""
   ]);
+}
+
+function upsertPortfolio(spreadsheet, payload) {
+  var items = Array.isArray(payload.items) ? payload.items : [];
+  var summary = summarizePortfolioItems(items);
+  var sheet = ensureSheet(
+    spreadsheet,
+    "Portfolio",
+    ["ID", "Owner Email", "Month", "Items JSON", "Income", "Investment", "Spent", "Remaining", "Deleted", "Created At"]
+  );
+
+  upsertById(sheet, payload.id, [
+    payload.id || "",
+    payload.ownerEmail || "",
+    payload.month || "",
+    JSON.stringify(items),
+    summary.income,
+    summary.investment,
+    summary.spent,
+    summary.remaining,
+    payload.deleted ? "Yes" : "No",
+    payload.createdAt || ""
+  ]);
+}
+
+function upsertStock(spreadsheet, payload) {
+  var sheet = ensureSheet(
+    spreadsheet,
+    "Stocks",
+    ["ID", "Owner Email", "Stock Name", "Category", "Buy Amount", "Buy Date", "Quantity", "Invested Amount", "Deleted", "Created At"]
+  );
+
+  var buyAmount = payload.buyAmount;
+  if (buyAmount === undefined || buyAmount === null || buyAmount === "") {
+    buyAmount = 0;
+  }
+
+  var quantity = payload.quantity;
+  if (quantity === undefined || quantity === null || quantity === "") {
+    quantity = 0;
+  }
+
+  upsertById(sheet, payload.id, [
+    payload.id || "",
+    payload.ownerEmail || "",
+    payload.stockName || "",
+    payload.category || "",
+    buyAmount,
+    payload.buyDate || "",
+    quantity,
+    Number(buyAmount) * Number(quantity),
+    payload.deleted ? "Yes" : "No",
+    payload.createdAt || ""
+  ]);
+}
+
+function summarizePortfolioItems(items) {
+  var summary = {
+    income: 0,
+    investment: 0,
+    spent: 0,
+    remaining: 0
+  };
+
+  items.forEach(function (item) {
+    var category = item.category;
+    var amount = Number(item.amount || 0);
+
+    if (category === "income") {
+      summary.income += amount;
+    } else if (category === "investment") {
+      summary.investment += amount;
+    } else {
+      summary.spent += amount;
+    }
+  });
+
+  summary.remaining = Math.max(summary.income - summary.investment - summary.spent, 0);
+  return summary;
 }
 
 function ensureSheet(spreadsheet, name, headers) {
