@@ -1114,6 +1114,7 @@ function App() {
               <h2>Portfolio tracker</h2>
               <div className="panel-actions">
                 <button className="graph-icon-button" type="button" title="Toggle graph" onClick={() => setShowPortfolioGraph((prev) => !prev)}><GraphIcon /></button>
+                <button className="icon-add-button" type="button" title="Add monthly portfolio details" onClick={() => openPortfolioEditor()}><PlusIcon /></button>
               </div>
             </div>
 
