@@ -714,79 +714,81 @@ function App() {
 
   return (
     <div className="app-shell">
-      <nav className="top-nav" aria-label="Main navigation">
-        <div className="tab-scroll-wrap">
-          <div className="tab-strip" aria-label="Tracker tabs">
-            <button className={`tab-button ${activeTab === "habit" ? "is-active" : ""}`} type="button" title="Habit" aria-label="Habit" onClick={() => setActiveTab("habit")}>
-              <span className="tab-icon"><HabitTabIcon /></span>
-              <span className="tab-text">Habit</span>
-            </button>
-            <button className={`tab-button ${activeTab === "task" ? "is-active" : ""}`} type="button" title="Task" aria-label="Task" onClick={() => setActiveTab("task")}>
-              <span className="tab-icon"><TaskTabIcon /></span>
-              <span className="tab-text">Task</span>
-            </button>
-            <button className={`tab-button ${activeTab === "trading" ? "is-active" : ""}`} type="button" title="Trading" aria-label="Trading" onClick={() => setActiveTab("trading")}>
-              <span className="tab-icon"><TradingTabIcon /></span>
-              <span className="tab-text">Trading</span>
-            </button>
-            <button className={`tab-button ${activeTab === "portfolio" ? "is-active" : ""}`} type="button" title="Portfolio" aria-label="Portfolio" onClick={() => setActiveTab("portfolio")}>
-              <span className="tab-icon"><PortfolioTabIcon /></span>
-              <span className="tab-text">Portfolio</span>
-            </button>
-            <button className={`tab-button ${activeTab === "stocks" ? "is-active" : ""}`} type="button" title="Stocks" aria-label="Stocks" onClick={() => setActiveTab("stocks")}>
-              <span className="tab-icon"><StocksTabIcon /></span>
-              <span className="tab-text">Stocks</span>
-            </button>
+      <header className="app-header" role="banner">
+        <div className="app-header-inner">
+          <div className="app-brand">
+            <span className="app-brand-icon"><AppLogoIcon /></span>
+            <span className="app-brand-name">LifeTracker</span>
           </div>
+          {state.settings.activeUserEmail ? (
+            <span className="app-user-chip" title={state.settings.activeUserEmail}>
+              <UserIcon />
+              <span>{state.settings.activeUserEmail.split("@")[0]}</span>
+            </span>
+          ) : null}
         </div>
+      </header>
 
-        <div className="nav-settings-wrap">
-          <button className="settings-icon-button tab-settings-button" type="button" aria-expanded={showSettings} aria-controls="navSettingsPanel" aria-label="Open sync settings" onClick={() => setShowSettings((prev) => !prev)}>
-            <SettingsIcon />
+      <nav className="bottom-nav" aria-label="Main navigation">
+        <div className="bottom-nav-inner">
+          <button className={`bottom-tab${activeTab === "habit" ? " is-active" : ""}`} title="Habit" type="button" aria-label="Habit" onClick={() => setActiveTab("habit")}>
+            <span className="bottom-tab-icon"><HabitTabIcon /></span>
+            <span className="bottom-tab-label">Habit</span>
           </button>
-
-          <section id="navSettingsPanel" className={`nav-settings-panel ${showSettings ? "" : "hidden"}`}>
-            <div className="settings-panel-header">
-              <p className="muted">Sync and account settings</p>
-              <button className="close-icon-button" type="button" aria-label="Close settings" onClick={() => setShowSettings(false)}>
-                <CloseIcon />
-              </button>
-            </div>
-
-            <form className="settings-form" onSubmit={(event) => { event.preventDefault(); setShowSettings(false); setStatusMessage("Settings saved."); }}>
-              <label>
-                Google Apps Script Web App URL
-                <input type="url" value={state.settings.sheetUrl} onChange={(event) => updateSettingsField("sheetUrl", event.target.value.trim())} placeholder="https://script.google.com/macros/s/.../exec" />
-              </label>
-              <label>
-                Google account email
-                <input
-                  type="email"
-                  value={state.settings.activeUserEmail}
-                  onChange={(event) => updateSettingsField("activeUserEmail", event.target.value.toLowerCase())}
-                  placeholder="youremail@gmail.com"
-                />
-              </label>
-              <p className="muted settings-help">Account-specific filtering works with just email. Signed-in account: {state.settings.activeUserEmail || "Not selected"}</p>
-
-              <section className="settings-usage-card" aria-label="Capacity and usage details">
-                <strong>Capacity and usage</strong>
-                <p className="muted">Estimated cells used: {formatInteger(settingsCapacitySnapshot.estimatedUsedCells)} / {formatInteger(SHEET_CELL_LIMIT)} ({formatPercent(settingsCapacitySnapshot.usagePercent)})</p>
-                <p className="muted">Estimated cells remaining: {formatInteger(settingsCapacitySnapshot.remainingCells)}</p>
-                <p className="muted">Rows stored locally: Habits {formatInteger(settingsCapacitySnapshot.rows.habits)}, Tasks {formatInteger(settingsCapacitySnapshot.rows.tasks)}, Trades {formatInteger(settingsCapacitySnapshot.rows.trades)}, Portfolio {formatInteger(settingsCapacitySnapshot.rows.portfolios)}, Stocks {formatInteger(settingsCapacitySnapshot.rows.stocks)}</p>
-                <p className="muted">Max rows in one tab if used alone: Habits {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.habits)}, Tasks {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.tasks)}, Trades {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.trades)}, Portfolio {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.portfolios)}, Stocks {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.stocks)}</p>
-              </section>
-
-              <label>
-                Google OAuth Web Client ID (optional)
-                <input value={state.settings.googleClientId} onChange={(event) => updateSettingsField("googleClientId", event.target.value.trim())} placeholder="Optional: paste OAuth client ID for one-click login" />
-              </label>
-              {state.settings.googleClientId ? <div id="googleSignInButton"></div> : null}
-              {state.settings.activeUserEmail ? <button className="button button-secondary" type="button" onClick={signOutGoogleAccount}>Sign out</button> : null}
-              <button className="button" type="submit">Save settings</button>
-              <button className="button button-secondary" type="button" onClick={syncPendingEntries}>Sync pending entries</button>
-            </form>
-          </section>
+          <button className={`bottom-tab${activeTab === "task" ? " is-active" : ""}`} title="Task" type="button" aria-label="Task" onClick={() => setActiveTab("task")}>
+            <span className="bottom-tab-icon"><TaskTabIcon /></span>
+            <span className="bottom-tab-label">Task</span>
+          </button>
+          <button className={`bottom-tab${activeTab === "trading" ? " is-active" : ""}`} title="Trading" type="button" aria-label="Trading" onClick={() => setActiveTab("trading")}>
+            <span className="bottom-tab-icon"><TradingTabIcon /></span>
+            <span className="bottom-tab-label">Trading</span>
+          </button>
+          <button className={`bottom-tab${activeTab === "portfolio" ? " is-active" : ""}`} title="Portfolio" type="button" aria-label="Portfolio" onClick={() => setActiveTab("portfolio")}>
+            <span className="bottom-tab-icon"><PortfolioTabIcon /></span>
+            <span className="bottom-tab-label">Portfolio</span>
+          </button>
+          <button className={`bottom-tab${activeTab === "stocks" ? " is-active" : ""}`} title="Stocks" type="button" aria-label="Stocks" onClick={() => setActiveTab("stocks")}>
+            <span className="bottom-tab-icon"><StocksTabIcon /></span>
+            <span className="bottom-tab-label">Stocks</span>
+          </button>
+          <div className="bottom-settings-wrap">
+            <button className="bottom-settings-btn" title="Settings" type="button" aria-expanded={showSettings} aria-controls="bottomSettingsPanel" aria-label="Settings" onClick={() => setShowSettings((prev) => !prev)}>
+              <SettingsIcon />
+            </button>
+            <section id="bottomSettingsPanel" className={`bottom-settings-panel${showSettings ? "" : " hidden"}`}>
+              <div className="settings-panel-header">
+                <p className="muted">Sync &amp; account settings</p>
+                <button className="close-icon-button" type="button" aria-label="Close settings" onClick={() => setShowSettings(false)}>
+                  <CloseIcon />
+                </button>
+              </div>
+              <form className="settings-form" onSubmit={(event) => { event.preventDefault(); setShowSettings(false); setStatusMessage("Settings saved."); }}>
+                <label>
+                  Google Apps Script Web App URL
+                  <input type="url" value={state.settings.sheetUrl} onChange={(event) => updateSettingsField("sheetUrl", event.target.value.trim())} placeholder="https://script.google.com/macros/s/.../exec" />
+                </label>
+                <label>
+                  Google account email
+                  <input type="email" value={state.settings.activeUserEmail} onChange={(event) => updateSettingsField("activeUserEmail", event.target.value.toLowerCase())} placeholder="youremail@gmail.com" />
+                </label>
+                <p className="muted settings-help">Signed-in: {state.settings.activeUserEmail || "Not selected"}</p>
+                <section className="settings-usage-card" aria-label="Capacity and usage details">
+                  <strong>Capacity and usage</strong>
+                  <p className="muted">Cells used: {formatInteger(settingsCapacitySnapshot.estimatedUsedCells)} / {formatInteger(SHEET_CELL_LIMIT)} ({formatPercent(settingsCapacitySnapshot.usagePercent)})</p>
+                  <p className="muted">Remaining: {formatInteger(settingsCapacitySnapshot.remainingCells)}</p>
+                  <p className="muted">Rows: Habits {formatInteger(settingsCapacitySnapshot.rows.habits)}, Tasks {formatInteger(settingsCapacitySnapshot.rows.tasks)}, Trades {formatInteger(settingsCapacitySnapshot.rows.trades)}, Portfolio {formatInteger(settingsCapacitySnapshot.rows.portfolios)}, Stocks {formatInteger(settingsCapacitySnapshot.rows.stocks)}</p>
+                </section>
+                <label>
+                  Google OAuth Client ID (optional)
+                  <input value={state.settings.googleClientId} onChange={(event) => updateSettingsField("googleClientId", event.target.value.trim())} placeholder="Optional: paste OAuth client ID for one-click login" />
+                </label>
+                {state.settings.googleClientId ? <div id="googleSignInButton"></div> : null}
+                {state.settings.activeUserEmail ? <button className="button button-secondary" type="button" onClick={signOutGoogleAccount}>Sign out</button> : null}
+                <button className="button" type="submit">Save settings</button>
+                <button className="button button-secondary" type="button" onClick={syncPendingEntries}>Sync pending entries</button>
+              </form>
+            </section>
+          </div>
         </div>
       </nav>
 
@@ -1380,6 +1382,12 @@ function App() {
         )}
       </main>
 
+      <footer className="app-footer" role="contentinfo">
+        <span className="app-footer-logo"><AppLogoIcon /></span>
+        <span className="app-footer-name">LifeTracker</span>
+        <span className="app-footer-tagline">Your personal habit, task &amp; finance companion</span>
+      </footer>
+
       <div className={`status-toast ${statusMessage ? "visible" : ""}`} aria-live="polite">{statusMessage}</div>
     </div>
   );
@@ -1862,6 +1870,25 @@ function PieChart({ title, totalLabel, data, emptyMessage }) {
       </div>
     </article>
   );
+}
+
+function AppLogoIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true" focusable="false" fill="none">
+      <circle cx="16" cy="16" r="14" fill="url(#alg)" />
+      <defs>
+        <linearGradient id="alg" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#38bdf8" />
+          <stop offset="1" stopColor="#818cf8" />
+        </linearGradient>
+      </defs>
+      <polyline points="8,22 11,15 14,19 17,11 20,16 23,10" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-5.33 0-8 2.67-8 4v2h16v-2c0-1.33-2.67-4-8-4Z" fill="currentColor" /></svg>;
 }
 
 function SettingsIcon() {
