@@ -17,6 +17,7 @@ const PORTFOLIO_PRESET_ROWS = [
 const BASE_PORTFOLIO_CATEGORIES = ["income", "investment", "spent"];
 
 const PIE_COLORS = ["#15a34a", "#f59e0b", "#ef4444", "#7c3aed", "#0891b2", "#db2777", "#2563eb", "#65a30d", "#8b5cf6", "#f97316"];
+const SHEET_CELL_LIMIT = 10000000;
 
 const defaultState = {
   settings: {
@@ -202,6 +203,47 @@ function App() {
   }, [stocksDesc]);
 
   const stockTotalInvested = useMemo(() => stockAllocation.reduce((sum, item) => sum + item.value, 0), [stockAllocation]);
+
+  const settingsCapacitySnapshot = useMemo(() => {
+    const rows = {
+      habits: state.habits.length,
+      tasks: state.tasks.length,
+      trades: state.trades.length,
+      portfolios: state.portfolios.length,
+      stocks: state.stocks.length
+    };
+
+    const columns = {
+      habits: 8,
+      tasks: 9,
+      trades: 8,
+      portfolios: 10,
+      stocks: 10
+    };
+
+    const estimatedUsedCells =
+      (rows.habits + 1) * columns.habits +
+      (rows.tasks + 1) * columns.tasks +
+      (rows.trades + 1) * columns.trades +
+      (rows.portfolios + 1) * columns.portfolios +
+      (rows.stocks + 1) * columns.stocks;
+
+    const usagePercent = Math.min((estimatedUsedCells / SHEET_CELL_LIMIT) * 100, 100);
+
+    return {
+      rows,
+      estimatedUsedCells,
+      remainingCells: Math.max(SHEET_CELL_LIMIT - estimatedUsedCells, 0),
+      usagePercent,
+      maxRowsSingleSheet: {
+        habits: Math.floor(SHEET_CELL_LIMIT / columns.habits),
+        tasks: Math.floor(SHEET_CELL_LIMIT / columns.tasks),
+        trades: Math.floor(SHEET_CELL_LIMIT / columns.trades),
+        portfolios: Math.floor(SHEET_CELL_LIMIT / columns.portfolios),
+        stocks: Math.floor(SHEET_CELL_LIMIT / columns.stocks)
+      }
+    };
+  }, [state.habits.length, state.tasks.length, state.trades.length, state.portfolios.length, state.stocks.length]);
 
   const tradeChart = useMemo(() => {
     if (!dailyTradesAsc.length) {
@@ -675,24 +717,24 @@ function App() {
       <nav className="top-nav" aria-label="Main navigation">
         <div className="tab-scroll-wrap">
           <div className="tab-strip" aria-label="Tracker tabs">
-            <button className={`tab-button ${activeTab === "habit" ? "is-active" : ""}`} type="button" onClick={() => setActiveTab("habit")}>
-              <span className="tab-icon" title="Habit"><HabitTabIcon /></span>
+            <button className={`tab-button ${activeTab === "habit" ? "is-active" : ""}`} type="button" title="Habit" aria-label="Habit" onClick={() => setActiveTab("habit")}>
+              <span className="tab-icon"><HabitTabIcon /></span>
               <span className="tab-text">Habit</span>
             </button>
-            <button className={`tab-button ${activeTab === "task" ? "is-active" : ""}`} type="button" onClick={() => setActiveTab("task")}>
-              <span className="tab-icon" title="Task"><TaskTabIcon /></span>
+            <button className={`tab-button ${activeTab === "task" ? "is-active" : ""}`} type="button" title="Task" aria-label="Task" onClick={() => setActiveTab("task")}>
+              <span className="tab-icon"><TaskTabIcon /></span>
               <span className="tab-text">Task</span>
             </button>
-            <button className={`tab-button ${activeTab === "trading" ? "is-active" : ""}`} type="button" onClick={() => setActiveTab("trading")}>
-              <span className="tab-icon" title="Trading"><TradingTabIcon /></span>
+            <button className={`tab-button ${activeTab === "trading" ? "is-active" : ""}`} type="button" title="Trading" aria-label="Trading" onClick={() => setActiveTab("trading")}>
+              <span className="tab-icon"><TradingTabIcon /></span>
               <span className="tab-text">Trading</span>
             </button>
-            <button className={`tab-button ${activeTab === "portfolio" ? "is-active" : ""}`} type="button" onClick={() => setActiveTab("portfolio")}>
-              <span className="tab-icon" title="Portfolio"><PortfolioTabIcon /></span>
+            <button className={`tab-button ${activeTab === "portfolio" ? "is-active" : ""}`} type="button" title="Portfolio" aria-label="Portfolio" onClick={() => setActiveTab("portfolio")}>
+              <span className="tab-icon"><PortfolioTabIcon /></span>
               <span className="tab-text">Portfolio</span>
             </button>
-            <button className={`tab-button ${activeTab === "stocks" ? "is-active" : ""}`} type="button" onClick={() => setActiveTab("stocks")}>
-              <span className="tab-icon" title="Stocks"><StocksTabIcon /></span>
+            <button className={`tab-button ${activeTab === "stocks" ? "is-active" : ""}`} type="button" title="Stocks" aria-label="Stocks" onClick={() => setActiveTab("stocks")}>
+              <span className="tab-icon"><StocksTabIcon /></span>
               <span className="tab-text">Stocks</span>
             </button>
           </div>
@@ -726,6 +768,14 @@ function App() {
                 />
               </label>
               <p className="muted settings-help">Account-specific filtering works with just email. Signed-in account: {state.settings.activeUserEmail || "Not selected"}</p>
+
+              <section className="settings-usage-card" aria-label="Capacity and usage details">
+                <strong>Capacity and usage</strong>
+                <p className="muted">Estimated cells used: {formatInteger(settingsCapacitySnapshot.estimatedUsedCells)} / {formatInteger(SHEET_CELL_LIMIT)} ({formatPercent(settingsCapacitySnapshot.usagePercent)})</p>
+                <p className="muted">Estimated cells remaining: {formatInteger(settingsCapacitySnapshot.remainingCells)}</p>
+                <p className="muted">Rows stored locally: Habits {formatInteger(settingsCapacitySnapshot.rows.habits)}, Tasks {formatInteger(settingsCapacitySnapshot.rows.tasks)}, Trades {formatInteger(settingsCapacitySnapshot.rows.trades)}, Portfolio {formatInteger(settingsCapacitySnapshot.rows.portfolios)}, Stocks {formatInteger(settingsCapacitySnapshot.rows.stocks)}</p>
+                <p className="muted">Max rows in one tab if used alone: Habits {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.habits)}, Tasks {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.tasks)}, Trades {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.trades)}, Portfolio {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.portfolios)}, Stocks {formatInteger(settingsCapacitySnapshot.maxRowsSingleSheet.stocks)}</p>
+              </section>
 
               <label>
                 Google OAuth Web Client ID (optional)
@@ -1081,11 +1131,7 @@ function App() {
               <article className="summary-card"><span>Income</span><strong>{formatNumber(currentPortfolioSummary.income)}</strong></article>
               <article className="summary-card"><span>Investment</span><strong>{formatNumber(currentPortfolioSummary.investment)}</strong></article>
               <article className="summary-card"><span>Spent</span><strong>{formatNumber(currentPortfolioSummary.spent)}</strong></article>
-            </div>
-            <div className="summary-grid report-grid compact-row">
               <article className="summary-card"><span>Remaining</span><strong>{formatNumber(currentPortfolioSummary.remaining)}</strong></article>
-              <article className="summary-card"><span>Categories</span><strong>{portfolioCategories.length}</strong></article>
-              <article className="summary-card"><span>Active account</span><strong>{state.settings.activeUserEmail || "All local entries"}</strong></article>
             </div>
 
             {showPortfolioAdd && (
@@ -1707,6 +1753,10 @@ function formatNumber(value) {
   return new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
+function formatInteger(value) {
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
 function formatPercent(value) {
   return `${formatNumber(value)}%`;
 }
@@ -1823,23 +1873,23 @@ function GraphIcon() {
 }
 
 function HabitTabIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 22a10 10 0 1 1 10-10 10 10 0 0 1-10 10Zm-1-6 7-7-1.41-1.41L11 13.17l-2.59-2.58L7 12l4 4Z" fill="currentColor" /></svg>;
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm0 4h10V6H7v1Zm2 4h6v2H9v-2Zm0 4h4v2H9v-2Z" fill="currentColor" /><path d="M11.5 8.5 13 10l3-3 1.2 1.2L13 12.4 10.8 10.2l.7-.7Z" fill="currentColor" opacity="0.9" /></svg>;
 }
 
 function TaskTabIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 3h-3.18C15.4 1.84 14.3 1 13 1h-2c-1.3 0-2.4.84-2.82 2H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm-7 0h0ZM7 8h10v2H7V8Zm0 4h10v2H7v-2Zm0 4h7v2H7v-2Z" fill="currentColor" /></svg>;
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm1.5 4.5 1.4-1.4L11 8.2l4.1-4.1 1.4 1.4L11 11ZM7 13h10v2H7v-2Zm0 4h7v2H7v-2Z" fill="currentColor" /></svg>;
 }
 
 function TradingTabIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17h2.59l4.7-4.71 3 3L21 7.59 19.59 6l-6.3 6.29-3-3L4 15.59V13H2v6h6v-2H3Z" fill="currentColor" /></svg>;
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 18h16v2H4v-2Zm2-4 3-3 2.5 2.5L18 9.5 19.5 11l-8 8-2.5-2.5L6 17l-2-3 2-4Z" fill="currentColor" /><path d="M7 7h4V5H7V3H5v6h2V7Zm10 0h2V3h-2V7Z" fill="currentColor" opacity="0.85" /></svg>;
 }
 
 function PortfolioTabIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6h-4V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2ZM10 4h4v2h-4V4Zm10 6H4v8h16v-8Z" fill="currentColor" /></svg>;
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16v12H4V6Zm2 2v8h12V8H6Zm2 1h4v2H8V9Zm0 3h7v2H8v-2Z" fill="currentColor" /><path d="M9 4h6l1 2H8l1-2Z" fill="currentColor" opacity="0.85" /></svg>;
 }
 
 function StocksTabIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20h16v2H2V2h2v18Zm2-4 3-3 3 2 6-6 2 2-8 8-3-2-2 2-1-1Z" fill="currentColor" /></svg>;
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20h16v2H4v-2Zm2-3V9h3v8H6Zm5-5V5h3v12h-3v-5Zm5 2v-7h3v7h-3Z" fill="currentColor" /><path d="M7 14l3-3 3 2 5-5 1.5 1.5-6.5 6.5-3-2-2 2L7 14Z" fill="currentColor" opacity="0.9" /></svg>;
 }
 
 function CloseIcon() {

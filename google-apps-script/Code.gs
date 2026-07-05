@@ -8,9 +8,12 @@ function doGet() {
 function doPost(e) {
   try {
     var request = JSON.parse(e.postData.contents || "{}");
-    var type = request.type;
+    var type = String(request.type || "").toLowerCase().trim();
     var payload = request.payload || {};
-    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var spreadsheet = getTargetSpreadsheet_();
+
+    // Always ensure required tabs exist so portfolio/stock sheets are created automatically.
+    ensureAllSheets_(spreadsheet);
 
     if (type === "habit") {
       upsertHabit(spreadsheet, payload);
@@ -33,6 +36,28 @@ function doPost(e) {
       error: error.message || String(error)
     });
   }
+}
+
+function getTargetSpreadsheet_() {
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) {
+    return active;
+  }
+
+  var spreadsheetId = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+  if (spreadsheetId) {
+    return SpreadsheetApp.openById(spreadsheetId);
+  }
+
+  throw new Error("Spreadsheet not found. Bind this script to a sheet or set Script Property SPREADSHEET_ID.");
+}
+
+function ensureAllSheets_(spreadsheet) {
+  ensureSheet(spreadsheet, "Habits", ["ID", "Owner Email", "Habit", "Start Time", "End Time", "Completions", "Deleted", "Created At"]);
+  ensureSheet(spreadsheet, "Tasks", ["ID", "Owner Email", "Task", "Completion Time", "Notes", "Completed", "Completed At", "Deleted", "Created At"]);
+  ensureSheet(spreadsheet, "Trades", ["ID", "Owner Email", "Date", "Target PnL", "Achieved PnL", "Achieved Percent", "Deleted", "Created At"]);
+  ensureSheet(spreadsheet, "Portfolio", ["ID", "Owner Email", "Month", "Items JSON", "Income", "Investment", "Spent", "Remaining", "Deleted", "Created At"]);
+  ensureSheet(spreadsheet, "Stocks", ["ID", "Owner Email", "Stock Name", "Category", "Buy Amount", "Buy Date", "Quantity", "Invested Amount", "Deleted", "Created At"]);
 }
 
 function upsertHabit(spreadsheet, payload) {

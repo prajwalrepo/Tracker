@@ -44,7 +44,9 @@ select {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.8rem 1.1rem;
+  width: min(1080px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0.8rem 0;
   background: rgba(255, 255, 255, 0.93);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(6px);
@@ -117,6 +119,7 @@ select {
 
 .nav-settings-wrap {
   position: relative;
+  flex: 0 0 auto;
 }
 
 .nav-settings-wrap-left {
@@ -184,6 +187,15 @@ select {
 .settings-form {
   display: grid;
   gap: 0.65rem;
+}
+
+.settings-usage-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.35rem;
 }
 
 .hidden {
@@ -841,20 +853,20 @@ th {
 
 @media (max-width: 860px) {
   .top-nav {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    row-gap: 0.6rem;
+    align-items: center;
+    flex-wrap: nowrap;
   }
 
   .tab-scroll-wrap {
-    flex: 1 0 100%;
-    overflow: visible;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .tab-strip {
     justify-content: flex-start;
-    flex-wrap: wrap;
-    width: 100%;
+    flex-wrap: nowrap;
+    width: max-content;
   }
 
   .nav-settings-wrap {
@@ -894,12 +906,18 @@ th {
   }
 
   .tab-button {
-    padding: 0.44rem 0.66rem;
+    padding: 0.42rem;
     font-size: 0.88rem;
+    min-width: 34px;
   }
 
   .tab-text {
-    font-size: 0.82rem;
+    display: none;
+  }
+
+  .tab-icon {
+    width: 16px;
+    height: 16px;
   }
 
   .task-metric-bars {
