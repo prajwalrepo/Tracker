@@ -1,8 +1,27 @@
-function doGet() {
-  return jsonResponse({
-    ok: true,
-    message: "Habit tracker sheet endpoint is running."
-  });
+function doGet(e) {
+  try {
+    var spreadsheet = getTargetSpreadsheet_();
+    ensureAllSheets_(spreadsheet);
+
+    var request = (typeof e !== "undefined" && e && e.parameter) ? e.parameter : {};
+    if (String(request.catalog || "") === "1") {
+      return jsonResponse({
+        ok: true,
+        workoutCatalog: readWorkoutCatalog_(spreadsheet),
+        dietCatalog: readDietCatalog_(spreadsheet)
+      });
+    }
+
+    return jsonResponse({
+      ok: true,
+      message: "LifeTracker sheet endpoint is running."
+    });
+  } catch (error) {
+    return jsonResponse({
+      ok: false,
+      error: error.message || String(error)
+    });
+  }
 }
 
 function doPost(e) {
@@ -25,6 +44,12 @@ function doPost(e) {
       upsertPortfolio(spreadsheet, payload);
     } else if (type === "stock") {
       upsertStock(spreadsheet, payload);
+    } else if (type === "workout") {
+      upsertWorkout(spreadsheet, payload);
+    } else if (type === "diet") {
+      upsertDiet(spreadsheet, payload);
+    } else if (type === "diettarget") {
+      upsertDietTarget(spreadsheet, payload);
     } else {
       throw new Error("Unsupported entry type.");
     }
@@ -58,6 +83,11 @@ function ensureAllSheets_(spreadsheet) {
   ensureSheet(spreadsheet, "Trades", ["ID", "Owner Email", "Date", "Target PnL", "Achieved PnL", "Achieved Percent", "Deleted", "Created At"]);
   ensureSheet(spreadsheet, "Portfolio", ["ID", "Owner Email", "Month", "Items JSON", "Income", "Investment", "Spent", "Remaining", "Deleted", "Created At"]);
   ensureSheet(spreadsheet, "Stocks", ["ID", "Owner Email", "Stock Name", "Category", "Buy Amount", "Buy Date", "Quantity", "Invested Amount", "Deleted", "Created At"]);
+  ensureSheet(spreadsheet, "Workouts", ["ID", "Owner Email", "Date", "Body Part", "Subgroup", "Exercise", "Weight", "Unit", "Reps", "Deleted", "Created At"]);
+  ensureSheet(spreadsheet, "Diets", ["ID", "Owner Email", "Date", "Food Name", "Serving", "Input Mode", "Quantity", "Quantity Unit", "Protein", "Carbs", "Fat", "Calories", "Deleted", "Created At"]);
+  ensureSheet(spreadsheet, "DietTargets", ["ID", "Owner Email", "Date", "Target Calories", "Deleted", "Created At"]);
+  ensureWorkoutCatalogSheet_(spreadsheet);
+  ensureDietCatalogSheet_(spreadsheet);
 }
 
 function upsertHabit(spreadsheet, payload) {
@@ -160,6 +190,205 @@ function upsertStock(spreadsheet, payload) {
     payload.deleted ? "Yes" : "No",
     payload.createdAt || ""
   ]);
+}
+
+function upsertWorkout(spreadsheet, payload) {
+  var sheet = ensureSheet(
+    spreadsheet,
+    "Workouts",
+    ["ID", "Owner Email", "Date", "Body Part", "Subgroup", "Exercise", "Weight", "Unit", "Reps", "Deleted", "Created At"]
+  );
+
+  upsertById(sheet, payload.id, [
+    payload.id || "",
+    payload.ownerEmail || "",
+    payload.date || "",
+    payload.bodyPartLabel || payload.bodyPart || "",
+    payload.subgroup || "",
+    payload.exercise || "",
+    payload.weight === null || payload.weight === undefined || payload.weight === "" ? "" : Number(payload.weight),
+    payload.unit || "kg",
+    payload.reps === null || payload.reps === undefined || payload.reps === "" ? "" : Number(payload.reps),
+    payload.deleted ? "Yes" : "No",
+    payload.createdAt || ""
+  ]);
+}
+
+function upsertDiet(spreadsheet, payload) {
+  var sheet = ensureSheet(
+    spreadsheet,
+    "Diets",
+    ["ID", "Owner Email", "Date", "Food Name", "Serving", "Input Mode", "Quantity", "Quantity Unit", "Protein", "Carbs", "Fat", "Calories", "Deleted", "Created At"]
+  );
+
+  upsertById(sheet, payload.id, [
+    payload.id || "",
+    payload.ownerEmail || "",
+    payload.date || "",
+    payload.foodName || "",
+    payload.serving || "",
+    payload.inputMode || "serving",
+    payload.quantity || 0,
+    payload.quantityUnit || "serving",
+    payload.protein || 0,
+    payload.carbs || 0,
+    payload.fat || 0,
+    payload.calories || 0,
+    payload.deleted ? "Yes" : "No",
+    payload.createdAt || ""
+  ]);
+}
+
+function upsertDietTarget(spreadsheet, payload) {
+  var sheet = ensureSheet(
+    spreadsheet,
+    "DietTargets",
+    ["ID", "Owner Email", "Date", "Target Calories", "Deleted", "Created At"]
+  );
+
+  upsertById(sheet, payload.id, [
+    payload.id || "",
+    payload.ownerEmail || "",
+    payload.date || "",
+    Number(payload.targetCalories || 0),
+    payload.deleted ? "Yes" : "No",
+    payload.createdAt || ""
+  ]);
+}
+
+function ensureWorkoutCatalogSheet_(spreadsheet) {
+  var sheet = ensureSheet(
+    spreadsheet,
+    "WorkoutCatalog",
+    ["Chest", "Back", "Legs", "Biceps", "Triceps", "Forearms", "Core"]
+  );
+
+  if (sheet.getLastRow() > 1) {
+    return sheet;
+  }
+
+  var maxRows = 8;
+  var values = [];
+  for (var rowIndex = 0; rowIndex < maxRows; rowIndex += 1) {
+    values.push(["", "", "", "", "", "", ""]);
+  }
+
+  values[0][0] = "Upper Chest - Incline Barbell Bench Press";
+  values[1][0] = "Upper Chest - Incline Dumbbell Press";
+  values[2][1] = "Width (Lats) - Pull-Ups";
+  values[3][2] = "Quadriceps - Barbell Squat";
+  values[4][3] = "Overall Biceps - Barbell Curl";
+  values[5][4] = "Long Head - Skull Crushers";
+  values[6][5] = "Grip Strength - Farmer's Walk";
+  values[7][6] = "Entire Core - Plank";
+
+  sheet.getRange(2, 1, values.length, values[0].length).setValues(values);
+  return sheet;
+}
+
+function ensureDietCatalogSheet_(spreadsheet) {
+  var headers = ["Food Item", "Serving", "Base Grams", "Protein", "Carbs", "Fat", "Calories"];
+  var sheet = ensureSheet(spreadsheet, "DietCatalog", headers);
+
+  if (sheet.getLastRow() > 1) {
+    return sheet;
+  }
+
+  sheet.appendRow(["Whole Egg", "1 Egg (50g)", 50, 6.3, 0.4, 5.3, 72]);
+  sheet.appendRow(["Egg White", "1 Egg White", "", 3.6, 0.2, 0.1, 17]);
+  sheet.appendRow(["Boiled Egg", "100g", 100, 13, 1.1, 11, 155]);
+  sheet.appendRow(["Chicken Breast (Cooked)", "100g", 100, 31, 0, 3.6, 165]);
+  return sheet;
+}
+
+function readWorkoutCatalog_(spreadsheet) {
+  var sheet = ensureWorkoutCatalogSheet_(spreadsheet);
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return {};
+  }
+
+  var headers = data[0];
+  var catalog = {};
+  for (var col = 0; col < headers.length; col += 1) {
+    var header = String(headers[col] || "").trim();
+    if (!header) {
+      continue;
+    }
+
+    var partKey = normalizeKey_(header);
+    if (!catalog[partKey]) {
+      catalog[partKey] = {
+        label: header,
+        groups: {}
+      };
+    }
+
+    for (var row = 1; row < data.length; row += 1) {
+      var raw = String(data[row][col] || "").trim();
+      if (!raw) {
+        continue;
+      }
+
+      var parsed = splitWorkoutLabel_(raw);
+      if (!catalog[partKey].groups[parsed.group]) {
+        catalog[partKey].groups[parsed.group] = [];
+      }
+      catalog[partKey].groups[parsed.group].push(parsed.exercise);
+    }
+  }
+
+  return catalog;
+}
+
+function readDietCatalog_(spreadsheet) {
+  var sheet = ensureDietCatalogSheet_(spreadsheet);
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return [];
+  }
+
+  var records = [];
+  for (var row = 1; row < data.length; row += 1) {
+    var name = String(data[row][0] || "").trim();
+    var serving = String(data[row][1] || "").trim();
+    if (!name || !serving) {
+      continue;
+    }
+
+    records.push({
+      name: name,
+      serving: serving,
+      baseGrams: data[row][2] === "" ? null : Number(data[row][2]),
+      protein: Number(data[row][3] || 0),
+      carbs: Number(data[row][4] || 0),
+      fat: Number(data[row][5] || 0),
+      calories: Number(data[row][6] || 0)
+    });
+  }
+
+  return records;
+}
+
+function splitWorkoutLabel_(text) {
+  var chunks = String(text || "").split("-");
+  if (chunks.length < 2) {
+    return {
+      group: "General",
+      exercise: text
+    };
+  }
+
+  var group = String(chunks[0] || "").trim();
+  var exercise = String(chunks.slice(1).join("-") || "").trim();
+  return {
+    group: group || "General",
+    exercise: exercise || text
+  };
+}
+
+function normalizeKey_(value) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, "");
 }
 
 function summarizePortfolioItems(items) {

@@ -1,6 +1,6 @@
 const { useEffect, useMemo, useState } = React;
 
-const STORAGE_KEY = "habitTaskTradingTracker.v6";
+const STORAGE_KEY = "habitTaskTradingTracker.v7";
 
 const PORTFOLIO_PRESET_ROWS = [
   { label: "Salary", category: "income" },
@@ -19,9 +19,114 @@ const BASE_PORTFOLIO_CATEGORIES = ["income", "investment", "spent"];
 const PIE_COLORS = ["#15a34a", "#f59e0b", "#ef4444", "#7c3aed", "#0891b2", "#db2777", "#2563eb", "#65a30d", "#8b5cf6", "#f97316"];
 const SHEET_CELL_LIMIT = 10000000;
 
+const WORKOUT_LIBRARY = {
+  chest: {
+    label: "Chest",
+    groups: {
+      "Upper Chest": ["Incline Barbell Bench Press", "Incline Dumbbell Press", "Incline Dumbbell Fly", "Low-to-High Cable Fly"],
+      "Middle Chest": ["Flat Barbell Bench Press", "Flat Dumbbell Press", "Pec Deck Fly", "Machine Chest Press"],
+      "Lower Chest": ["Decline Bench Press", "Decline Dumbbell Press", "Chest Dips (Forward Leaning)", "High-to-Low Cable Fly"]
+    }
+  },
+  back: {
+    label: "Back",
+    groups: {
+      "Width (Lats)": ["Pull-Ups", "Lat Pulldown", "Close-Grip Lat Pulldown", "Straight Arm Pulldown"],
+      Thickness: ["Barbell Bent-Over Row", "T-Bar Row", "Seated Cable Row", "One-Arm Dumbbell Row", "Chest-Supported Row"],
+      "Lower Back": ["Deadlift", "Romanian Deadlift", "Back Extensions", "Good Mornings"]
+    }
+  },
+  legs: {
+    label: "Legs",
+    groups: {
+      Quadriceps: ["Barbell Squat", "Front Squat", "Leg Press", "Walking Lunges", "Bulgarian Split Squat", "Leg Extensions"],
+      Hamstrings: ["Romanian Deadlift", "Lying Leg Curl", "Seated Leg Curl", "Good Mornings"],
+      Glutes: ["Hip Thrust", "Glute Bridge", "Bulgarian Split Squat", "Cable Kickbacks"],
+      Calves: ["Standing Calf Raise", "Seated Calf Raise", "Leg Press Calf Raise", "Donkey Calf Raise"]
+    }
+  },
+  biceps: {
+    label: "Biceps",
+    groups: {
+      "Long Head": ["Incline Dumbbell Curl", "Alternating Dumbbell Curl", "Drag Curl"],
+      "Short Head": ["Preacher Curl", "EZ-Bar Curl", "Concentration Curl"],
+      "Overall Biceps": ["Barbell Curl", "Hammer Curl", "Cable Curl", "Chin-Ups"]
+    }
+  },
+  triceps: {
+    label: "Triceps",
+    groups: {
+      "Long Head": ["Overhead Dumbbell Extension", "Overhead Cable Extension", "Skull Crushers"],
+      "Lateral Head": ["Cable Pushdown", "Straight Bar Pushdown", "Close-Grip Bench Press"],
+      "Medial Head": ["Reverse Grip Pushdown", "Diamond Push-Ups", "Dips"]
+    }
+  },
+  forearms: {
+    label: "Forearms",
+    groups: {
+      "Forearm Flexors": ["Wrist Curl", "Cable Wrist Curl"],
+      "Forearm Extensors": ["Reverse Wrist Curl", "Reverse Cable Curl"],
+      "Grip Strength": ["Farmer's Walk", "Dead Hangs", "Plate Pinches", "Wrist Roller"],
+      Brachioradialis: ["Hammer Curl", "Reverse Barbell Curl", "Rope Hammer Curl"]
+    }
+  },
+  core: {
+    label: "Core",
+    groups: {
+      "Upper Abs": ["Crunches", "Machine Crunch", "Cable Crunch"],
+      "Lower Abs": ["Hanging Leg Raises", "Reverse Crunches", "Lying Leg Raises"],
+      Obliques: ["Russian Twists", "Cable Woodchoppers", "Side Plank"],
+      "Entire Core": ["Plank", "Ab Wheel Rollout", "Mountain Climbers", "Dead Bug"]
+    }
+  }
+};
+
+const DIET_FOODS = [
+  { name: "Whole Egg", serving: "1 Egg (50g)", baseGrams: 50, protein: 6.3, carbs: 0.4, fat: 5.3, calories: 72 },
+  { name: "Egg White", serving: "1 Egg White", baseGrams: null, protein: 3.6, carbs: 0.2, fat: 0.1, calories: 17 },
+  { name: "Boiled Egg", serving: "100g", baseGrams: 100, protein: 13, carbs: 1.1, fat: 11, calories: 155 },
+  { name: "Moong Sprouts", serving: "100g", baseGrams: 100, protein: 3, carbs: 6, fat: 0.2, calories: 30 },
+  { name: "Chana Sprouts", serving: "100g", baseGrams: 100, protein: 9, carbs: 27, fat: 2.5, calories: 164 },
+  { name: "Mixed Sprouts", serving: "100g", baseGrams: 100, protein: 7, carbs: 15, fat: 1, calories: 90 },
+  { name: "Soybean Sprouts", serving: "100g", baseGrams: 100, protein: 13, carbs: 9, fat: 6, calories: 140 },
+  { name: "Idli", serving: "100g", baseGrams: 100, protein: 4, carbs: 28, fat: 0.4, calories: 146 },
+  { name: "Plain Dosa", serving: "100g", baseGrams: 100, protein: 5, carbs: 26, fat: 4, calories: 168 },
+  { name: "Masala Dosa", serving: "100g", baseGrams: 100, protein: 4.5, carbs: 31, fat: 6, calories: 200 },
+  { name: "Rava Dosa", serving: "100g", baseGrams: 100, protein: 5, carbs: 30, fat: 7, calories: 220 },
+  { name: "Uttapam", serving: "100g", baseGrams: 100, protein: 5, carbs: 28, fat: 3, calories: 170 },
+  { name: "Upma", serving: "100g", baseGrams: 100, protein: 4, carbs: 21, fat: 7, calories: 160 },
+  { name: "Poha", serving: "100g", baseGrams: 100, protein: 2.5, carbs: 24, fat: 4, calories: 130 },
+  { name: "Pongal", serving: "100g", baseGrams: 100, protein: 5, carbs: 23, fat: 8, calories: 190 },
+  { name: "Chapati/Roti", serving: "1 Medium", baseGrams: null, protein: 3, carbs: 18, fat: 1, calories: 95 },
+  { name: "Whole Wheat Roti", serving: "100g", baseGrams: 100, protein: 9, carbs: 49, fat: 3, calories: 265 },
+  { name: "Paratha", serving: "100g", baseGrams: 100, protein: 6, carbs: 36, fat: 10, calories: 280 },
+  { name: "Aloo Paratha", serving: "100g", baseGrams: 100, protein: 5, carbs: 33, fat: 10, calories: 260 },
+  { name: "Plain Rice (Cooked)", serving: "100g", baseGrams: 100, protein: 2.7, carbs: 28, fat: 0.3, calories: 130 },
+  { name: "Lemon Rice", serving: "100g", baseGrams: 100, protein: 3, carbs: 28, fat: 5, calories: 180 },
+  { name: "Curd Rice", serving: "100g", baseGrams: 100, protein: 3.5, carbs: 20, fat: 3, calories: 125 },
+  { name: "Vegetable Pulao", serving: "100g", baseGrams: 100, protein: 3.5, carbs: 30, fat: 4, calories: 170 },
+  { name: "Veg Biryani", serving: "100g", baseGrams: 100, protein: 4, carbs: 28, fat: 7, calories: 200 },
+  { name: "Chicken Biryani", serving: "100g", baseGrams: 100, protein: 10, carbs: 28, fat: 8, calories: 220 },
+  { name: "Sambar", serving: "100g", baseGrams: 100, protein: 3, carbs: 8, fat: 2, calories: 60 },
+  { name: "Dal Tadka", serving: "100g", baseGrams: 100, protein: 7, carbs: 15, fat: 4, calories: 130 },
+  { name: "Rajma", serving: "100g", baseGrams: 100, protein: 8.5, carbs: 23, fat: 0.8, calories: 127 },
+  { name: "Chole", serving: "100g", baseGrams: 100, protein: 9, carbs: 27, fat: 3, calories: 165 },
+  { name: "Paneer", serving: "100g", baseGrams: 100, protein: 18, carbs: 4, fat: 20, calories: 265 },
+  { name: "Paneer Bhurji", serving: "100g", baseGrams: 100, protein: 16, carbs: 5, fat: 18, calories: 240 },
+  { name: "Tofu", serving: "100g", baseGrams: 100, protein: 8, carbs: 2, fat: 4, calories: 76 },
+  { name: "Soy Chunks (Boiled)", serving: "100g", baseGrams: 100, protein: 16, carbs: 9, fat: 1, calories: 115 },
+  { name: "Chicken Breast (Cooked)", serving: "100g", baseGrams: 100, protein: 31, carbs: 0, fat: 3.6, calories: 165 },
+  { name: "Chicken Curry", serving: "100g", baseGrams: 100, protein: 18, carbs: 4, fat: 10, calories: 190 },
+  { name: "Fish Curry", serving: "100g", baseGrams: 100, protein: 20, carbs: 4, fat: 8, calories: 180 },
+  { name: "Naan", serving: "100g", baseGrams: 100, protein: 9, carbs: 50, fat: 5, calories: 310 },
+  { name: "Bhatura", serving: "100g", baseGrams: 100, protein: 8, carbs: 45, fat: 14, calories: 330 }
+];
+
 const defaultState = {
   settings: {
-    sheetUrl: "",
+    habitsTasksSheetUrl: "",
+    financeSheetUrl: "",
+    healthSheetUrl: "",
     portfolioCategories: [],
     googleClientId: "",
     activeUserEmail: "",
@@ -31,12 +136,15 @@ const defaultState = {
   tasks: [],
   trades: [],
   portfolios: [],
-  stocks: []
+  stocks: [],
+  workouts: [],
+  diets: [],
+  dietTargets: []
 };
 
 function App() {
   const [state, setState] = useState(loadState);
-  const [activeTab, setActiveTab] = useState("habit");
+  const [activeTab, setActiveTab] = useState("home");
   const [statusMessage, setStatusMessage] = useState("");
   const activeUserEmail = String(state.settings.activeUserEmail || "").trim().toLowerCase();
 
@@ -60,11 +168,24 @@ function App() {
   const [showTradeGraph, setShowTradeGraph] = useState(false);
   const [showPortfolioGraph, setShowPortfolioGraph] = useState(false);
   const [showStockGraph, setShowStockGraph] = useState(false);
+  const [showDietGraph, setShowDietGraph] = useState(true);
+
+  const [workoutLibraryData, setWorkoutLibraryData] = useState(WORKOUT_LIBRARY);
+  const [dietFoodOptions, setDietFoodOptions] = useState(DIET_FOODS);
 
   const [habitForm, setHabitForm] = useState({ name: "", startTime: "", endTime: "" });
   const [taskForm, setTaskForm] = useState({ title: "", completionTime: "", notes: "" });
   const [tradeForm, setTradeForm] = useState({ date: getToday(), target: "" });
   const [stockForm, setStockForm] = useState({ stockName: "", category: "", buyAmount: "", buyDate: getToday(), quantity: "" });
+  const [workoutDate, setWorkoutDate] = useState(getToday());
+  const [workoutMuscle, setWorkoutMuscle] = useState("chest");
+  const [workoutExerciseKey, setWorkoutExerciseKey] = useState("");
+  const [dietDate, setDietDate] = useState(getToday());
+  const [dietFoodName, setDietFoodName] = useState(DIET_FOODS[0] ? DIET_FOODS[0].name : "");
+  const [dietInputMode, setDietInputMode] = useState("serving");
+  const [dietServingQty, setDietServingQty] = useState("1");
+  const [dietWeightQty, setDietWeightQty] = useState("100");
+  const [dietTargetCaloriesInput, setDietTargetCaloriesInput] = useState("");
 
   const [portfolioFormItems, setPortfolioFormItems] = useState(createDefaultPortfolioFormItems);
   const [newPortfolioCategory, setNewPortfolioCategory] = useState("");
@@ -95,6 +216,78 @@ function App() {
   useEffect(() => {
     setPortfolioGraphMonth(portfolioMonth || getCurrentMonth());
   }, [portfolioMonth]);
+
+  useEffect(() => {
+    const activeFoodNames = dietFoodOptions.map((item) => item.name);
+    if (!dietFoodName || !activeFoodNames.includes(dietFoodName)) {
+      setDietFoodName(dietFoodOptions[0] ? dietFoodOptions[0].name : "");
+    }
+  }, [dietFoodOptions, dietFoodName]);
+
+  useEffect(() => {
+    const keys = Object.keys(workoutLibraryData);
+    if (!keys.length) {
+      return;
+    }
+    if (!keys.includes(workoutMuscle)) {
+      setWorkoutMuscle(keys[0]);
+    }
+  }, [workoutLibraryData, workoutMuscle]);
+
+  useEffect(() => {
+    setDietTargetCaloriesInput(dietTargetEntry ? String(dietTargetEntry.targetCalories || "") : "");
+  }, [dietTargetEntry, dietDate]);
+
+  useEffect(() => {
+    const url = String(state.settings.healthSheetUrl || "").trim();
+    if (!url) {
+      setWorkoutLibraryData(WORKOUT_LIBRARY);
+      setDietFoodOptions(DIET_FOODS);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(buildCatalogUrl(url), {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (cancelled || !data || data.ok !== true) {
+          return;
+        }
+
+        const remoteWorkout = normalizeWorkoutCatalog(data.workoutCatalog);
+        const remoteDiet = normalizeDietCatalog(data.dietCatalog);
+
+        if (Object.keys(remoteWorkout).length) {
+          setWorkoutLibraryData(remoteWorkout);
+        }
+        if (remoteDiet.length) {
+          setDietFoodOptions(remoteDiet);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStatusMessage("Using local workout/diet lists. Health sheet catalog fetch failed.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state.settings.healthSheetUrl]);
+
+  useEffect(() => {
+    if (!workoutOptions.length) {
+      setWorkoutExerciseKey("");
+      return;
+    }
+    if (!workoutExerciseKey || !workoutOptions.some((item) => item.key === workoutExerciseKey)) {
+      setWorkoutExerciseKey(workoutOptions[0].key);
+    }
+  }, [workoutOptions, workoutExerciseKey]);
 
   useEffect(() => {
     const googleClientId = String(state.settings.googleClientId || "").trim();
@@ -169,6 +362,10 @@ function App() {
   const currentPortfolioSummary = useMemo(() => summarizePortfolioItems(currentPortfolio ? currentPortfolio.items : []), [currentPortfolio]);
 
   const stocksDesc = useMemo(() => state.stocks.filter((stock) => !stock.deleted && belongsToActiveUser(stock)).sort((a, b) => (b.buyDate || "").localeCompare(a.buyDate || "")), [state.stocks, activeUserEmail]);
+  const workoutOptions = useMemo(() => getWorkoutOptions(workoutLibraryData, workoutMuscle), [workoutLibraryData, workoutMuscle]);
+  const workoutEntries = useMemo(() => state.workouts.filter((entry) => !entry.deleted && belongsToActiveUser(entry) && entry.date === workoutDate).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")), [state.workouts, workoutDate, activeUserEmail]);
+  const dietEntries = useMemo(() => state.diets.filter((entry) => !entry.deleted && belongsToActiveUser(entry) && entry.date === dietDate).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")), [state.diets, dietDate, activeUserEmail]);
+  const dietTargetEntry = useMemo(() => state.dietTargets.find((entry) => !entry.deleted && belongsToActiveUser(entry) && entry.date === dietDate) || null, [state.dietTargets, dietDate, activeUserEmail]);
 
   const graphScopeValue = portfolioGraphRange === "monthly" ? portfolioGraphMonth : `${portfolioGraphYear}-01`;
   const portfolioYears = useMemo(() => {
@@ -203,6 +400,30 @@ function App() {
   }, [stocksDesc]);
 
   const stockTotalInvested = useMemo(() => stockAllocation.reduce((sum, item) => sum + item.value, 0), [stockAllocation]);
+  const dietDayTotals = useMemo(() => dietEntries.reduce((sum, item) => ({
+    protein: sum.protein + Number(item.protein || 0),
+    carbs: sum.carbs + Number(item.carbs || 0),
+    fat: sum.fat + Number(item.fat || 0),
+    calories: sum.calories + Number(item.calories || 0)
+  }), { protein: 0, carbs: 0, fat: 0, calories: 0 }), [dietEntries]);
+  const dietTargetCalories = dietTargetEntry ? Number(dietTargetEntry.targetCalories || 0) : 0;
+  const dietConsumedCalories = Number(dietDayTotals.calories || 0);
+
+  const dietDayChart = useMemo(() => {
+    const maxY = Math.max(1, dietTargetCalories, dietConsumedCalories) * 1.1;
+    const width = 520;
+    const height = 220;
+    const leftPad = 52;
+    const rightPad = 18;
+    const topPad = 16;
+    const bottomPad = 48;
+    const plotH = height - topPad - bottomPad;
+    const barW = 110;
+    const xTarget = 150;
+    const xConsumed = 300;
+    const toY = (value) => topPad + ((maxY - Math.max(0, Number(value || 0))) / maxY) * plotH;
+    return { width, height, leftPad, rightPad, bottomPad, barW, xTarget, xConsumed, toY, maxY };
+  }, [dietTargetCalories, dietConsumedCalories]);
 
   const settingsCapacitySnapshot = useMemo(() => {
     const rows = {
@@ -210,7 +431,10 @@ function App() {
       tasks: state.tasks.length,
       trades: state.trades.length,
       portfolios: state.portfolios.length,
-      stocks: state.stocks.length
+      stocks: state.stocks.length,
+      workouts: state.workouts.length,
+      diets: state.diets.length,
+      dietTargets: state.dietTargets.length
     };
 
     const columns = {
@@ -218,7 +442,10 @@ function App() {
       tasks: 9,
       trades: 8,
       portfolios: 10,
-      stocks: 10
+      stocks: 10,
+      workouts: 11,
+      diets: 14,
+      dietTargets: 6
     };
 
     const estimatedUsedCells =
@@ -226,7 +453,10 @@ function App() {
       (rows.tasks + 1) * columns.tasks +
       (rows.trades + 1) * columns.trades +
       (rows.portfolios + 1) * columns.portfolios +
-      (rows.stocks + 1) * columns.stocks;
+      (rows.stocks + 1) * columns.stocks +
+      (rows.workouts + 1) * columns.workouts +
+      (rows.diets + 1) * columns.diets +
+      (rows.dietTargets + 1) * columns.dietTargets;
 
     const usagePercent = Math.min((estimatedUsedCells / SHEET_CELL_LIMIT) * 100, 100);
 
@@ -240,10 +470,13 @@ function App() {
         tasks: Math.floor(SHEET_CELL_LIMIT / columns.tasks),
         trades: Math.floor(SHEET_CELL_LIMIT / columns.trades),
         portfolios: Math.floor(SHEET_CELL_LIMIT / columns.portfolios),
-        stocks: Math.floor(SHEET_CELL_LIMIT / columns.stocks)
+        stocks: Math.floor(SHEET_CELL_LIMIT / columns.stocks),
+        workouts: Math.floor(SHEET_CELL_LIMIT / columns.workouts),
+        diets: Math.floor(SHEET_CELL_LIMIT / columns.diets),
+        dietTargets: Math.floor(SHEET_CELL_LIMIT / columns.dietTargets)
       }
     };
-  }, [state.habits.length, state.tasks.length, state.trades.length, state.portfolios.length, state.stocks.length]);
+  }, [state.habits.length, state.tasks.length, state.trades.length, state.portfolios.length, state.stocks.length, state.workouts.length, state.diets.length, state.dietTargets.length]);
 
   const tradeChart = useMemo(() => {
     if (!dailyTradesAsc.length) {
@@ -356,6 +589,188 @@ function App() {
 
     setNewPortfolioCategory("");
     setStatusMessage(`Category ${category} added.`);
+  }
+
+  async function addWorkoutToToday() {
+    if (!workoutExerciseKey) {
+      setStatusMessage("Select a workout exercise first.");
+      return;
+    }
+
+    const selected = workoutOptions.find((item) => item.key === workoutExerciseKey);
+    if (!selected) {
+      setStatusMessage("Selected workout not found.");
+      return;
+    }
+
+    const entry = {
+      id: makeId(),
+      date: workoutDate,
+      bodyPart: workoutMuscle,
+      bodyPartLabel: workoutLibraryData[workoutMuscle] ? workoutLibraryData[workoutMuscle].label : workoutMuscle,
+      subgroup: selected.group,
+      exercise: selected.exercise,
+      weight: null,
+      unit: "kg",
+      reps: null,
+      ownerEmail: activeUserEmail,
+      deleted: false,
+      createdAt: new Date().toISOString(),
+      syncStatus: "pending"
+    };
+
+    setState((prev) => ({ ...prev, workouts: [entry, ...prev.workouts] }));
+    await tryImmediateSync("workout", entry);
+  }
+
+  async function updateWorkoutEntry(entryId, field, value) {
+    let updated = null;
+    setState((prev) => ({
+      ...prev,
+      workouts: prev.workouts.map((entry) => {
+        if (entry.id !== entryId) {
+          return entry;
+        }
+        if (field === "weight" || field === "reps") {
+          updated = {
+            ...entry,
+            [field]: value === "" ? null : Number(value),
+            syncStatus: "pending"
+          };
+          return updated;
+        }
+        updated = {
+          ...entry,
+          [field]: value,
+          syncStatus: "pending"
+        };
+        return updated;
+      })
+    }));
+
+    if (updated) {
+      await tryImmediateSync("workout", updated);
+    }
+  }
+
+  async function deleteWorkoutEntry(entryId) {
+    let updated = null;
+    setState((prev) => ({
+      ...prev,
+      workouts: prev.workouts.map((entry) => {
+        if (entry.id !== entryId) {
+          return entry;
+        }
+        updated = { ...entry, deleted: true, syncStatus: "pending" };
+        return updated;
+      })
+    }));
+
+    if (updated) {
+      await tryImmediateSync("workout", updated);
+    }
+  }
+
+  async function addDietEntry() {
+    const food = dietFoodOptions.find((item) => item.name === dietFoodName);
+    if (!food) {
+      setStatusMessage("Select a food item.");
+      return;
+    }
+
+    const servingQty = Number(dietServingQty || 0);
+    const weightQty = Number(dietWeightQty || 0);
+    const multiplier = dietInputMode === "weight"
+      ? (food.baseGrams ? weightQty / food.baseGrams : weightQty / 100)
+      : servingQty;
+
+    if (!Number.isFinite(multiplier) || multiplier <= 0) {
+      setStatusMessage("Enter valid quantity or weight.");
+      return;
+    }
+
+    const entry = {
+      id: makeId(),
+      date: dietDate,
+      foodName: food.name,
+      serving: food.serving,
+      inputMode: dietInputMode,
+      quantity: dietInputMode === "weight" ? weightQty : servingQty,
+      quantityUnit: dietInputMode === "weight" ? "g" : "serving",
+      protein: food.protein * multiplier,
+      carbs: food.carbs * multiplier,
+      fat: food.fat * multiplier,
+      calories: food.calories * multiplier,
+      ownerEmail: activeUserEmail,
+      deleted: false,
+      createdAt: new Date().toISOString(),
+      syncStatus: "pending"
+    };
+
+    setState((prev) => ({ ...prev, diets: [entry, ...prev.diets] }));
+    await tryImmediateSync("diet", entry);
+  }
+
+  async function deleteDietEntry(entryId) {
+    let updated = null;
+    setState((prev) => ({
+      ...prev,
+      diets: prev.diets.map((entry) => {
+        if (entry.id !== entryId) {
+          return entry;
+        }
+        updated = { ...entry, deleted: true, syncStatus: "pending" };
+        return updated;
+      })
+    }));
+
+    if (updated) {
+      await tryImmediateSync("diet", updated);
+    }
+  }
+
+  async function saveDietTarget() {
+    const targetCalories = Number(dietTargetCaloriesInput || 0);
+    if (!Number.isFinite(targetCalories) || targetCalories < 0) {
+      setStatusMessage("Enter valid target calories.");
+      return;
+    }
+
+    const existing = state.dietTargets.find((entry) => !entry.deleted && belongsToActiveUser(entry) && entry.date === dietDate);
+    if (existing) {
+      const updated = {
+        ...existing,
+        targetCalories,
+        syncStatus: "pending"
+      };
+      setState((prev) => ({ ...prev, dietTargets: prev.dietTargets.map((item) => (item.id === existing.id ? updated : item)) }));
+      await tryImmediateSync("dietTarget", updated);
+      return;
+    }
+
+    const entry = {
+      id: makeId(),
+      date: dietDate,
+      targetCalories,
+      ownerEmail: activeUserEmail,
+      deleted: false,
+      createdAt: new Date().toISOString(),
+      syncStatus: "pending"
+    };
+
+    setState((prev) => ({ ...prev, dietTargets: [entry, ...prev.dietTargets] }));
+    await tryImmediateSync("dietTarget", entry);
+  }
+
+  async function deleteDietTarget() {
+    if (!dietTargetEntry) {
+      return;
+    }
+
+    const updated = { ...dietTargetEntry, deleted: true, syncStatus: "pending" };
+    setState((prev) => ({ ...prev, dietTargets: prev.dietTargets.map((item) => (item.id === dietTargetEntry.id ? updated : item)) }));
+    setDietTargetCaloriesInput("");
+    await tryImmediateSync("dietTarget", updated);
   }
 
   async function submitHabit(event) {
@@ -609,12 +1024,13 @@ function App() {
       return;
     }
 
-    if (!state.settings.sheetUrl) {
-      setStatusMessage("Add your Google Apps Script URL before syncing.");
+    const url = getSheetUrlForType(state.settings, "portfolio");
+    if (!url) {
+      setStatusMessage("Add finance sheet URL before syncing portfolio.");
       return;
     }
 
-    const success = await pushEntry("portfolio", entry, state.settings.sheetUrl);
+    const success = await pushEntry("portfolio", entry, url);
     updateSyncStatus("portfolio", entry.id, success ? "synced" : "failed");
     setStatusMessage(success ? "Portfolio synced." : "Portfolio sync failed.");
   }
@@ -660,17 +1076,15 @@ function App() {
   }
 
   async function syncPendingEntries() {
-    if (!state.settings.sheetUrl) {
-      setStatusMessage("Add your Google Apps Script URL before syncing.");
-      return;
-    }
-
     const pending = [
       ...state.habits.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "habit", entry })),
       ...state.tasks.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "task", entry })),
       ...state.trades.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "trade", entry })),
       ...state.portfolios.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "portfolio", entry })),
-      ...state.stocks.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "stock", entry }))
+      ...state.stocks.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "stock", entry })),
+      ...state.workouts.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "workout", entry })),
+      ...state.diets.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "diet", entry })),
+      ...state.dietTargets.filter((entry) => belongsToActiveUser(entry) && entry.syncStatus !== "synced").map((entry) => ({ type: "dietTarget", entry }))
     ];
 
     if (!pending.length) {
@@ -680,7 +1094,11 @@ function App() {
 
     let syncedCount = 0;
     for (const item of pending) {
-      const success = await pushEntry(item.type, item.entry, state.settings.sheetUrl);
+      const url = getSheetUrlForType(state.settings, item.type);
+      if (!url) {
+        continue;
+      }
+      const success = await pushEntry(item.type, item.entry, url);
       updateSyncStatus(item.type, item.entry.id, success ? "synced" : "failed");
       if (success) {
         syncedCount += 1;
@@ -691,12 +1109,13 @@ function App() {
   }
 
   async function tryImmediateSync(type, entry) {
-    if (!state.settings.sheetUrl) {
-      setStatusMessage("Saved locally. Add Google Apps Script URL for sync.");
+    const url = getSheetUrlForType(state.settings, type);
+    if (!url) {
+      setStatusMessage("Saved locally. Add the correct sheet URL in Settings for this module.");
       return;
     }
 
-    const success = await pushEntry(type, entry, state.settings.sheetUrl);
+    const success = await pushEntry(type, entry, url);
     updateSyncStatus(type, entry.id, success ? "synced" : "failed");
     setStatusMessage(success ? "Saved and synced." : "Saved locally. Sync failed.");
   }
@@ -720,79 +1139,116 @@ function App() {
             <span className="app-brand-icon"><AppLogoIcon /></span>
             <span className="app-brand-name">LifeTracker</span>
           </div>
-          {state.settings.activeUserEmail ? (
-            <span className="app-user-chip" title={state.settings.activeUserEmail}>
-              <UserIcon />
-              <span>{state.settings.activeUserEmail.split("@")[0]}</span>
-            </span>
-          ) : null}
+          <div className="header-actions">
+            {state.settings.activeUserEmail ? (
+              <span className="app-user-chip" title={state.settings.activeUserEmail}>
+                <UserIcon />
+                <span>{state.settings.activeUserEmail.split("@")[0]}</span>
+              </span>
+            ) : null}
+            <div className="header-settings-wrap">
+              <button className="header-settings-btn" title="Settings" type="button" aria-expanded={showSettings} aria-controls="headerSettingsPanel" aria-label="Settings" onClick={() => setShowSettings((prev) => !prev)}>
+                <SettingsIcon />
+              </button>
+              <section id="headerSettingsPanel" className={`bottom-settings-panel${showSettings ? "" : " hidden"}`}>
+                <div className="settings-panel-header">
+                  <p className="muted">Sync &amp; account settings</p>
+                  <button className="close-icon-button" type="button" aria-label="Close settings" onClick={() => setShowSettings(false)}>
+                    <CloseIcon />
+                  </button>
+                </div>
+                <form className="settings-form" onSubmit={(event) => { event.preventDefault(); setShowSettings(false); setStatusMessage("Settings saved."); }}>
+                  <label>
+                    Habits + Tasks sheet URL
+                    <input type="url" value={state.settings.habitsTasksSheetUrl} onChange={(event) => updateSettingsField("habitsTasksSheetUrl", event.target.value.trim())} placeholder="https://script.google.com/macros/s/.../exec" />
+                  </label>
+                  <label>
+                    Stocks + Trades + Portfolio sheet URL
+                    <input type="url" value={state.settings.financeSheetUrl} onChange={(event) => updateSettingsField("financeSheetUrl", event.target.value.trim())} placeholder="https://script.google.com/macros/s/.../exec" />
+                  </label>
+                  <label>
+                    Workout + Diet sheet URL
+                    <input type="url" value={state.settings.healthSheetUrl} onChange={(event) => updateSettingsField("healthSheetUrl", event.target.value.trim())} placeholder="https://script.google.com/macros/s/.../exec" />
+                  </label>
+                  <label>
+                    Google account email
+                    <input type="email" value={state.settings.activeUserEmail} onChange={(event) => updateSettingsField("activeUserEmail", event.target.value.toLowerCase())} placeholder="youremail@gmail.com" />
+                  </label>
+                  <p className="muted settings-help">Signed-in: {state.settings.activeUserEmail || "Not selected"}</p>
+                  <section className="settings-usage-card" aria-label="Capacity and usage details">
+                    <strong>Capacity and usage</strong>
+                    <p className="muted">Cells used: {formatInteger(settingsCapacitySnapshot.estimatedUsedCells)} / {formatInteger(SHEET_CELL_LIMIT)} ({formatPercent(settingsCapacitySnapshot.usagePercent)})</p>
+                    <p className="muted">Remaining: {formatInteger(settingsCapacitySnapshot.remainingCells)}</p>
+                    <p className="muted">Rows: Habits {formatInteger(settingsCapacitySnapshot.rows.habits)}, Tasks {formatInteger(settingsCapacitySnapshot.rows.tasks)}, Trades {formatInteger(settingsCapacitySnapshot.rows.trades)}, Portfolio {formatInteger(settingsCapacitySnapshot.rows.portfolios)}, Stocks {formatInteger(settingsCapacitySnapshot.rows.stocks)}, Workouts {formatInteger(settingsCapacitySnapshot.rows.workouts)}, Diets {formatInteger(settingsCapacitySnapshot.rows.diets)}, Diet Targets {formatInteger(settingsCapacitySnapshot.rows.dietTargets)}</p>
+                  </section>
+                  <label>
+                    Google OAuth Client ID (optional)
+                    <input value={state.settings.googleClientId} onChange={(event) => updateSettingsField("googleClientId", event.target.value.trim())} placeholder="Optional: paste OAuth client ID for one-click login" />
+                  </label>
+                  {state.settings.googleClientId ? <div id="googleSignInButton"></div> : null}
+                  {state.settings.activeUserEmail ? <button className="button button-secondary" type="button" onClick={signOutGoogleAccount}>Sign out</button> : null}
+                  <button className="button" type="submit">Save settings</button>
+                  <button className="button button-secondary" type="button" onClick={syncPendingEntries}>Sync pending entries</button>
+                </form>
+              </section>
+            </div>
+          </div>
         </div>
       </header>
 
-      <nav className="bottom-nav" aria-label="Main navigation">
-        <div className="bottom-nav-inner">
-          <button className={`bottom-tab${activeTab === "habit" ? " is-active" : ""}`} title="Habit" type="button" aria-label="Habit" onClick={() => setActiveTab("habit")}>
-            <span className="bottom-tab-icon"><HabitTabIcon /></span>
-            <span className="bottom-tab-label">Habit</span>
-          </button>
-          <button className={`bottom-tab${activeTab === "task" ? " is-active" : ""}`} title="Task" type="button" aria-label="Task" onClick={() => setActiveTab("task")}>
-            <span className="bottom-tab-icon"><TaskTabIcon /></span>
-            <span className="bottom-tab-label">Task</span>
-          </button>
-          <button className={`bottom-tab${activeTab === "trading" ? " is-active" : ""}`} title="Trading" type="button" aria-label="Trading" onClick={() => setActiveTab("trading")}>
-            <span className="bottom-tab-icon"><TradingTabIcon /></span>
-            <span className="bottom-tab-label">Trading</span>
-          </button>
-          <button className={`bottom-tab${activeTab === "portfolio" ? " is-active" : ""}`} title="Portfolio" type="button" aria-label="Portfolio" onClick={() => setActiveTab("portfolio")}>
-            <span className="bottom-tab-icon"><PortfolioTabIcon /></span>
-            <span className="bottom-tab-label">Portfolio</span>
-          </button>
-          <button className={`bottom-tab${activeTab === "stocks" ? " is-active" : ""}`} title="Stocks" type="button" aria-label="Stocks" onClick={() => setActiveTab("stocks")}>
-            <span className="bottom-tab-icon"><StocksTabIcon /></span>
-            <span className="bottom-tab-label">Stocks</span>
-          </button>
-          <div className="bottom-settings-wrap">
-            <button className="bottom-settings-btn" title="Settings" type="button" aria-expanded={showSettings} aria-controls="bottomSettingsPanel" aria-label="Settings" onClick={() => setShowSettings((prev) => !prev)}>
-              <SettingsIcon />
-            </button>
-            <section id="bottomSettingsPanel" className={`bottom-settings-panel${showSettings ? "" : " hidden"}`}>
-              <div className="settings-panel-header">
-                <p className="muted">Sync &amp; account settings</p>
-                <button className="close-icon-button" type="button" aria-label="Close settings" onClick={() => setShowSettings(false)}>
-                  <CloseIcon />
-                </button>
-              </div>
-              <form className="settings-form" onSubmit={(event) => { event.preventDefault(); setShowSettings(false); setStatusMessage("Settings saved."); }}>
-                <label>
-                  Google Apps Script Web App URL
-                  <input type="url" value={state.settings.sheetUrl} onChange={(event) => updateSettingsField("sheetUrl", event.target.value.trim())} placeholder="https://script.google.com/macros/s/.../exec" />
-                </label>
-                <label>
-                  Google account email
-                  <input type="email" value={state.settings.activeUserEmail} onChange={(event) => updateSettingsField("activeUserEmail", event.target.value.toLowerCase())} placeholder="youremail@gmail.com" />
-                </label>
-                <p className="muted settings-help">Signed-in: {state.settings.activeUserEmail || "Not selected"}</p>
-                <section className="settings-usage-card" aria-label="Capacity and usage details">
-                  <strong>Capacity and usage</strong>
-                  <p className="muted">Cells used: {formatInteger(settingsCapacitySnapshot.estimatedUsedCells)} / {formatInteger(SHEET_CELL_LIMIT)} ({formatPercent(settingsCapacitySnapshot.usagePercent)})</p>
-                  <p className="muted">Remaining: {formatInteger(settingsCapacitySnapshot.remainingCells)}</p>
-                  <p className="muted">Rows: Habits {formatInteger(settingsCapacitySnapshot.rows.habits)}, Tasks {formatInteger(settingsCapacitySnapshot.rows.tasks)}, Trades {formatInteger(settingsCapacitySnapshot.rows.trades)}, Portfolio {formatInteger(settingsCapacitySnapshot.rows.portfolios)}, Stocks {formatInteger(settingsCapacitySnapshot.rows.stocks)}</p>
-                </section>
-                <label>
-                  Google OAuth Client ID (optional)
-                  <input value={state.settings.googleClientId} onChange={(event) => updateSettingsField("googleClientId", event.target.value.trim())} placeholder="Optional: paste OAuth client ID for one-click login" />
-                </label>
-                {state.settings.googleClientId ? <div id="googleSignInButton"></div> : null}
-                {state.settings.activeUserEmail ? <button className="button button-secondary" type="button" onClick={signOutGoogleAccount}>Sign out</button> : null}
-                <button className="button" type="submit">Save settings</button>
-                <button className="button button-secondary" type="button" onClick={syncPendingEntries}>Sync pending entries</button>
-              </form>
-            </section>
-          </div>
-        </div>
-      </nav>
-
       <main className="page-content">
+        {activeTab !== "home" && (
+          <div className="page-back-wrap">
+            <button className="button button-secondary back-home-button" type="button" onClick={() => setActiveTab("home")}>
+              <BackIcon />
+              Back to Home
+            </button>
+          </div>
+        )}
+
+        {activeTab === "home" && (
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Home</h2>
+            </div>
+            <p className="muted compact-row">Tap an app card to open that page.</p>
+            <div className="home-app-grid">
+              <button type="button" className="home-app-tile" onClick={() => setActiveTab("habit")}>
+                <span className="home-app-icon"><HabitTabIcon /></span>
+                <strong>Habit</strong>
+              </button>
+              <button type="button" className="home-app-tile" onClick={() => setActiveTab("task")}>
+                <span className="home-app-icon"><TaskTabIcon /></span>
+                <strong>Task</strong>
+              </button>
+              <button type="button" className="home-app-tile" onClick={() => setActiveTab("trading")}>
+                <span className="home-app-icon"><TradingTabIcon /></span>
+                <strong>Trading</strong>
+              </button>
+              <button type="button" className="home-app-tile" onClick={() => setActiveTab("portfolio")}>
+                <span className="home-app-icon"><PortfolioTabIcon /></span>
+                <strong>Portfolio</strong>
+              </button>
+              <button type="button" className="home-app-tile" onClick={() => setActiveTab("stocks")}>
+                <span className="home-app-icon"><StocksTabIcon /></span>
+                <strong>Stocks</strong>
+              </button>
+              <button type="button" className="home-app-tile" onClick={() => setActiveTab("workout")}>
+                <span className="home-app-icon"><WorkoutTabIcon /></span>
+                <strong>Workout</strong>
+              </button>
+              <button type="button" className="home-app-tile" onClick={() => setActiveTab("diet")}>
+                <span className="home-app-icon"><DietTabIcon /></span>
+                <strong>Diet</strong>
+              </button>
+              <button type="button" className="home-app-tile" onClick={() => setShowSettings(true)}>
+                <span className="home-app-icon"><SettingsIcon /></span>
+                <strong>Settings</strong>
+              </button>
+            </div>
+          </section>
+        )}
+
         {activeTab === "habit" && (
           <section className="panel">
             <div className="panel-heading">
@@ -1381,6 +1837,186 @@ function App() {
             </div>
           </section>
         )}
+
+        {activeTab === "workout" && (
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Workout planner</h2>
+            </div>
+
+            <div className="field-grid three-up compact-row">
+              <label>
+                Workout date
+                <input type="date" value={workoutDate} onChange={(event) => setWorkoutDate(event.target.value || getToday())} />
+              </label>
+              <label>
+                Muscle group
+                <select value={workoutMuscle} onChange={(event) => setWorkoutMuscle(event.target.value)}>
+                  {Object.keys(workoutLibraryData).map((key) => <option key={key} value={key}>{workoutLibraryData[key].label}</option>)}
+                </select>
+              </label>
+              <label>
+                Exercise
+                <select value={workoutExerciseKey} onChange={(event) => setWorkoutExerciseKey(event.target.value)}>
+                  {workoutOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div className="panel-actions compact-row">
+              <button className="button" type="button" onClick={addWorkoutToToday}>Add to today workout</button>
+            </div>
+
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Muscle</th>
+                    <th>Workout</th>
+                    <th>Weight</th>
+                    <th>Unit</th>
+                    <th>Reps</th>
+                    <th className="icon-col"></th>
+                    <th className="icon-col"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workoutEntries.length ? workoutEntries.map((entry) => (
+                    <tr key={entry.id}>
+                      <td>{entry.bodyPartLabel}</td>
+                      <td>{entry.subgroup} - {entry.exercise}</td>
+                      <td><input type="number" step="0.1" value={entry.weight ?? ""} onChange={(event) => updateWorkoutEntry(entry.id, "weight", event.target.value)} /></td>
+                      <td>
+                        <select value={entry.unit || "kg"} onChange={(event) => updateWorkoutEntry(entry.id, "unit", event.target.value)}>
+                          <option value="kg">kg</option>
+                          <option value="lbs">lbs</option>
+                        </select>
+                      </td>
+                      <td><input type="number" step="1" value={entry.reps ?? ""} onChange={(event) => updateWorkoutEntry(entry.id, "reps", event.target.value)} /></td>
+                      <td>{makeSyncIcon(entry.syncStatus)}</td>
+                      <td><button className="icon-button" type="button" title="Delete workout" onClick={() => deleteWorkoutEntry(entry.id)}><TrashIcon /></button></td>
+                    </tr>
+                  )) : <tr><td colSpan="7">No workouts added for this date.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "diet" && (
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Diet calculator</h2>
+              <div className="panel-actions">
+                <button className="graph-icon-button" type="button" title="Toggle graph" onClick={() => setShowDietGraph((prev) => !prev)}><GraphIcon /></button>
+              </div>
+            </div>
+
+            <div className="summary-grid report-grid compact-row">
+              <article className="summary-card"><span>Protein (g)</span><strong>{formatNumber(dietDayTotals.protein)}</strong></article>
+              <article className="summary-card"><span>Carbs (g)</span><strong>{formatNumber(dietDayTotals.carbs)}</strong></article>
+              <article className="summary-card"><span>Fat (g)</span><strong>{formatNumber(dietDayTotals.fat)}</strong></article>
+              <article className="summary-card stock-total-card"><span>Calories</span><strong>{formatNumber(dietDayTotals.calories)}</strong></article>
+            </div>
+
+            <div className="field-grid three-up compact-row">
+              <label>
+                Diet date
+                <input type="date" value={dietDate} onChange={(event) => setDietDate(event.target.value || getToday())} />
+              </label>
+              <label>
+                Target calories
+                <input type="number" step="1" value={dietTargetCaloriesInput} onChange={(event) => setDietTargetCaloriesInput(event.target.value)} placeholder="Set daily target" />
+              </label>
+              <div className="panel-actions diet-target-actions">
+                <button className="button" type="button" onClick={saveDietTarget}>Save target</button>
+                <button className="button button-secondary" type="button" onClick={deleteDietTarget} disabled={!dietTargetEntry}>Delete target</button>
+              </div>
+            </div>
+
+            {showDietGraph && (
+              <section className="graph-panel">
+                <div className="graph-header">
+                  <h3>Diet target vs consumed</h3>
+                  <p className="muted">Target is manual. Consumed is from today's food entries.</p>
+                </div>
+                <div className="line-chart-wrap">
+                  <svg viewBox={`0 0 ${dietDayChart.width} ${dietDayChart.height}`} className="line-chart" role="img" aria-label="Diet target versus consumed calories chart">
+                    <line x1={dietDayChart.leftPad} y1={dietDayChart.height - dietDayChart.bottomPad} x2={dietDayChart.width - dietDayChart.rightPad} y2={dietDayChart.height - dietDayChart.bottomPad} className="line-grid" />
+                    <rect x={dietDayChart.xTarget} y={dietDayChart.toY(dietTargetCalories)} width={dietDayChart.barW} height={(dietDayChart.height - dietDayChart.bottomPad) - dietDayChart.toY(dietTargetCalories)} className="diet-target-bar" />
+                    <rect x={dietDayChart.xConsumed} y={dietDayChart.toY(dietConsumedCalories)} width={dietDayChart.barW} height={(dietDayChart.height - dietDayChart.bottomPad) - dietDayChart.toY(dietConsumedCalories)} className="diet-consumed-bar" />
+                    <text x={dietDayChart.xTarget + (dietDayChart.barW / 2)} y={dietDayChart.height - 16} textAnchor="middle" className="line-x-label">Target</text>
+                    <text x={dietDayChart.xConsumed + (dietDayChart.barW / 2)} y={dietDayChart.height - 16} textAnchor="middle" className="line-x-label">Consumed</text>
+                    <text x={dietDayChart.xTarget + (dietDayChart.barW / 2)} y={dietDayChart.toY(dietTargetCalories) - 6} textAnchor="middle" className="line-y-label">{formatNumber(dietTargetCalories)}</text>
+                    <text x={dietDayChart.xConsumed + (dietDayChart.barW / 2)} y={dietDayChart.toY(dietConsumedCalories) - 6} textAnchor="middle" className="line-y-label">{formatNumber(dietConsumedCalories)}</text>
+                  </svg>
+                </div>
+              </section>
+            )}
+
+            <div className="field-grid three-up compact-row">
+              <label>
+                Food
+                <select value={dietFoodName} onChange={(event) => setDietFoodName(event.target.value)}>
+                  {dietFoodOptions.map((food) => <option key={food.name} value={food.name}>{food.name} ({food.serving})</option>)}
+                </select>
+              </label>
+              <label>
+                Input mode
+                <select value={dietInputMode} onChange={(event) => setDietInputMode(event.target.value)}>
+                  <option value="serving">Quantity (servings)</option>
+                  <option value="weight">Weight (grams)</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="field-grid two-up compact-row">
+              <label>
+                Quantity (servings)
+                <input type="number" step="0.1" value={dietServingQty} disabled={dietInputMode !== "serving"} onChange={(event) => setDietServingQty(event.target.value)} />
+              </label>
+              <label>
+                Weight (g)
+                <input type="number" step="1" value={dietWeightQty} disabled={dietInputMode !== "weight"} onChange={(event) => setDietWeightQty(event.target.value)} />
+              </label>
+            </div>
+
+            <div className="panel-actions compact-row">
+              <button className="button" type="button" onClick={addDietEntry}>Add food</button>
+            </div>
+
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Food</th>
+                    <th>Input</th>
+                    <th>Protein</th>
+                    <th>Carbs</th>
+                    <th>Fat</th>
+                    <th>Calories</th>
+                    <th className="icon-col"></th>
+                    <th className="icon-col"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dietEntries.length ? dietEntries.map((entry) => (
+                    <tr key={entry.id}>
+                      <td>{entry.foodName}</td>
+                      <td>{formatNumber(entry.quantity)} {entry.quantityUnit}</td>
+                      <td>{formatNumber(entry.protein)}</td>
+                      <td>{formatNumber(entry.carbs)}</td>
+                      <td>{formatNumber(entry.fat)}</td>
+                      <td>{formatNumber(entry.calories)}</td>
+                      <td>{makeSyncIcon(entry.syncStatus)}</td>
+                      <td><button className="icon-button" type="button" title="Delete food" onClick={() => deleteDietEntry(entry.id)}><TrashIcon /></button></td>
+                    </tr>
+                  )) : <tr><td colSpan="8">No food added for this date.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </main>
 
       <footer className="app-footer" role="contentinfo">
@@ -1397,6 +2033,7 @@ function App() {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
+      || localStorage.getItem("habitTaskTradingTracker.v6")
       || localStorage.getItem("habitTaskTradingTracker.v5")
       || localStorage.getItem("habitTaskTradingTracker.v4")
       || localStorage.getItem("habitTaskTradingTracker.v3")
@@ -1412,6 +2049,9 @@ function loadState() {
       settings: {
         ...defaultState.settings,
         ...(parsed.settings || {}),
+        habitsTasksSheetUrl: String((parsed.settings && (parsed.settings.habitsTasksSheetUrl || parsed.settings.sheetUrl)) || "").trim(),
+        financeSheetUrl: String((parsed.settings && parsed.settings.financeSheetUrl) || "").trim(),
+        healthSheetUrl: String((parsed.settings && parsed.settings.healthSheetUrl) || "").trim(),
         googleClientId: String((parsed.settings && parsed.settings.googleClientId) || ""),
         activeUserEmail: String((parsed.settings && parsed.settings.activeUserEmail) || "").trim().toLowerCase(),
         activeUserName: String((parsed.settings && parsed.settings.activeUserName) || ""),
@@ -1421,7 +2061,10 @@ function loadState() {
       tasks: Array.isArray(parsed.tasks) ? parsed.tasks.map(normalizeTask) : [],
       trades: Array.isArray(parsed.trades) ? parsed.trades.map(normalizeTrade) : [],
       portfolios: Array.isArray(parsed.portfolios) ? parsed.portfolios.map(normalizePortfolio) : [],
-      stocks: Array.isArray(parsed.stocks) ? parsed.stocks.map(normalizeStock) : []
+      stocks: Array.isArray(parsed.stocks) ? parsed.stocks.map(normalizeStock) : [],
+      workouts: Array.isArray(parsed.workouts) ? parsed.workouts.map(normalizeWorkout) : [],
+      diets: Array.isArray(parsed.diets) ? parsed.diets.map(normalizeDiet) : [],
+      dietTargets: Array.isArray(parsed.dietTargets) ? parsed.dietTargets.map(normalizeDietTarget) : []
     };
   } catch {
     return structuredClone(defaultState);
@@ -1511,6 +2154,118 @@ function normalizeStock(entry) {
     createdAt: entry.createdAt || new Date().toISOString(),
     syncStatus: entry.syncStatus || "pending"
   };
+}
+
+function normalizeWorkout(entry) {
+  return {
+    id: entry.id || makeId(),
+    date: String(entry.date || getToday()),
+    bodyPart: String(entry.bodyPart || "chest"),
+    bodyPartLabel: String(entry.bodyPartLabel || (WORKOUT_LIBRARY[entry.bodyPart] ? WORKOUT_LIBRARY[entry.bodyPart].label : entry.bodyPart || "Chest")),
+    subgroup: String(entry.subgroup || ""),
+    exercise: String(entry.exercise || ""),
+    weight: entry.weight === null || entry.weight === "" || entry.weight === undefined ? null : Number(entry.weight || 0),
+    unit: String(entry.unit || "kg"),
+    reps: entry.reps === null || entry.reps === "" || entry.reps === undefined ? null : Number(entry.reps || 0),
+    ownerEmail: String(entry.ownerEmail || "").trim().toLowerCase(),
+    deleted: Boolean(entry.deleted),
+    createdAt: entry.createdAt || new Date().toISOString(),
+    syncStatus: entry.syncStatus || "pending"
+  };
+}
+
+function normalizeDiet(entry) {
+  return {
+    id: entry.id || makeId(),
+    date: String(entry.date || getToday()),
+    foodName: String(entry.foodName || ""),
+    serving: String(entry.serving || ""),
+    inputMode: String(entry.inputMode || "serving"),
+    quantity: Number(entry.quantity || 0),
+    quantityUnit: String(entry.quantityUnit || "serving"),
+    protein: Number(entry.protein || 0),
+    carbs: Number(entry.carbs || 0),
+    fat: Number(entry.fat || 0),
+    calories: Number(entry.calories || 0),
+    ownerEmail: String(entry.ownerEmail || "").trim().toLowerCase(),
+    deleted: Boolean(entry.deleted),
+    createdAt: entry.createdAt || new Date().toISOString(),
+    syncStatus: entry.syncStatus || "pending"
+  };
+}
+
+function normalizeDietTarget(entry) {
+  return {
+    id: entry.id || makeId(),
+    date: String(entry.date || getToday()),
+    targetCalories: Number(entry.targetCalories || 0),
+    ownerEmail: String(entry.ownerEmail || "").trim().toLowerCase(),
+    deleted: Boolean(entry.deleted),
+    createdAt: entry.createdAt || new Date().toISOString(),
+    syncStatus: entry.syncStatus || "pending"
+  };
+}
+
+function getWorkoutOptions(workoutLibrary, bodyPart) {
+  const bucket = workoutLibrary[bodyPart];
+  if (!bucket || !bucket.groups) {
+    return [];
+  }
+
+  return Object.keys(bucket.groups).flatMap((group) => bucket.groups[group].map((exercise) => ({
+    key: `${group}::${exercise}`,
+    group,
+    exercise,
+    label: `${group} - ${exercise}`
+  })));
+}
+
+function normalizeWorkoutCatalog(rawCatalog) {
+  const catalog = {};
+  const source = rawCatalog && typeof rawCatalog === "object" ? rawCatalog : {};
+  Object.keys(source).forEach((partKey) => {
+    const part = source[partKey] || {};
+    const groups = part.groups && typeof part.groups === "object" ? part.groups : {};
+    const normalizedGroups = {};
+    Object.keys(groups).forEach((groupName) => {
+      const exercises = Array.isArray(groups[groupName]) ? groups[groupName].map((item) => String(item || "").trim()).filter(Boolean) : [];
+      if (exercises.length) {
+        normalizedGroups[String(groupName || "").trim()] = exercises;
+      }
+    });
+
+    if (Object.keys(normalizedGroups).length) {
+      const key = normalizeCategoryText(partKey);
+      catalog[key] = {
+        label: String(part.label || capitalize(partKey)),
+        groups: normalizedGroups
+      };
+    }
+  });
+  return catalog;
+}
+
+function normalizeDietCatalog(rawFoods) {
+  if (!Array.isArray(rawFoods)) {
+    return [];
+  }
+
+  return rawFoods
+    .map((item) => ({
+      name: String(item.name || "").trim(),
+      serving: String(item.serving || "").trim(),
+      baseGrams: item.baseGrams === null || item.baseGrams === undefined || item.baseGrams === "" ? null : Number(item.baseGrams),
+      protein: Number(item.protein || 0),
+      carbs: Number(item.carbs || 0),
+      fat: Number(item.fat || 0),
+      calories: Number(item.calories || 0)
+    }))
+    .filter((item) => item.name && item.serving);
+}
+
+function buildCatalogUrl(url) {
+  const separator = String(url).includes("?") ? "&" : "?";
+  return `${url}${separator}catalog=1`;
 }
 
 function createDefaultPortfolioFormItems() {
@@ -1750,10 +2505,26 @@ async function pushEntry(type, entry, url) {
   }
 }
 
+function getSheetUrlForType(settings, type) {
+  if (type === "habit" || type === "task") {
+    return String(settings.habitsTasksSheetUrl || "").trim();
+  }
+  if (type === "trade" || type === "portfolio" || type === "stock") {
+    return String(settings.financeSheetUrl || "").trim();
+  }
+  if (type === "workout" || type === "diet" || type === "dietTarget") {
+    return String(settings.healthSheetUrl || "").trim();
+  }
+  return "";
+}
+
 function getStateKeyForType(type) {
   if (type === "habit") return "habits";
   if (type === "task") return "tasks";
   if (type === "trade") return "trades";
+  if (type === "workout") return "workouts";
+  if (type === "diet") return "diets";
+  if (type === "dietTarget") return "dietTargets";
   if (type === "stock") return "stocks";
   return "portfolios";
 }
@@ -1900,6 +2671,10 @@ function GraphIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h2v18H3V3Zm16 6h2v12h-2V9ZM11 13h2v8h-2v-8Zm-4-4h2v12H7V9Zm8-6h2v18h-2V3Z" fill="currentColor" /></svg>;
 }
 
+function HomeTabIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 3 10v11h6v-7h6v7h6V10l-9-7Z" fill="currentColor" /></svg>;
+}
+
 function HabitTabIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm0 4h10V6H7v1Zm2 4h6v2H9v-2Zm0 4h4v2H9v-2Z" fill="currentColor" /><path d="M11.5 8.5 13 10l3-3 1.2 1.2L13 12.4 10.8 10.2l.7-.7Z" fill="currentColor" opacity="0.9" /></svg>;
 }
@@ -1920,8 +2695,20 @@ function StocksTabIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20h16v2H4v-2Zm2-3V9h3v8H6Zm5-5V5h3v12h-3v-5Zm5 2v-7h3v7h-3Z" fill="currentColor" /><path d="M7 14l3-3 3 2 5-5 1.5 1.5-6.5 6.5-3-2-2 2L7 14Z" fill="currentColor" opacity="0.9" /></svg>;
 }
 
+function WorkoutTabIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 10h4v4H2v-4Zm16 0h4v4h-4v-4ZM7 8h10v8H7V8Zm1-3h2v2H8V5Zm6 0h2v2h-2V5Zm-6 12h2v2H8v-2Zm6 0h2v2h-2v-2Z" fill="currentColor" /></svg>;
+}
+
+function DietTabIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3c2 0 4 1.8 4 4 0 2.1-1.9 4-4 4S3 9.1 3 7c0-2.2 2-4 4-4Zm10 0 4 4-9 9-4 1 1-4 9-9Z" fill="currentColor" /><path d="M3 19h18v2H3v-2Z" fill="currentColor" opacity="0.9" /></svg>;
+}
+
 function CloseIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.4 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.3 6.29-6.3Z" fill="currentColor" /></svg>;
+}
+
+function BackIcon() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11H7.83l4.88-4.88L11.29 4.7 4 12l7.29 7.29 1.42-1.42L7.83 13H20v-2Z" fill="currentColor" /></svg>;
 }
 
 function ClockIcon() {
