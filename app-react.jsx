@@ -169,6 +169,7 @@ function App() {
   const [showPortfolioGraph, setShowPortfolioGraph] = useState(false);
   const [showStockGraph, setShowStockGraph] = useState(false);
   const [showDietGraph, setShowDietGraph] = useState(true);
+  const [showDietTargetForm, setShowDietTargetForm] = useState(false);
 
   const [workoutLibraryData, setWorkoutLibraryData] = useState(WORKOUT_LIBRARY);
   const [dietFoodOptions, setDietFoodOptions] = useState(DIET_FOODS);
@@ -184,8 +185,11 @@ function App() {
   const [dietFoodName, setDietFoodName] = useState(DIET_FOODS[0] ? DIET_FOODS[0].name : "");
   const [dietInputMode, setDietInputMode] = useState("serving");
   const [dietServingQty, setDietServingQty] = useState("1");
-  const [dietWeightQty, setDietWeightQty] = useState("100");
+  const [dietWeightQty, setDietWeightQty] = useState("");
   const [dietTargetCaloriesInput, setDietTargetCaloriesInput] = useState("");
+  const [dietTargetProteinInput, setDietTargetProteinInput] = useState("");
+  const [dietTargetCarbsInput, setDietTargetCarbsInput] = useState("");
+  const [dietTargetFatInput, setDietTargetFatInput] = useState("");
 
   const [portfolioFormItems, setPortfolioFormItems] = useState(createDefaultPortfolioFormItems);
   const [newPortfolioCategory, setNewPortfolioCategory] = useState("");
@@ -236,7 +240,23 @@ function App() {
 
   useEffect(() => {
     setDietTargetCaloriesInput(dietTargetEntry ? String(dietTargetEntry.targetCalories || "") : "");
+    setDietTargetProteinInput(dietTargetEntry ? String(dietTargetEntry.targetProtein || "") : "");
+    setDietTargetCarbsInput(dietTargetEntry ? String(dietTargetEntry.targetCarbs || "") : "");
+    setDietTargetFatInput(dietTargetEntry ? String(dietTargetEntry.targetFat || "") : "");
   }, [dietTargetEntry, dietDate]);
+
+  useEffect(() => {
+    if (!showDietTargetForm) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      const input = document.getElementById("diet-target-calories-input");
+      if (input) {
+        input.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [showDietTargetForm]);
 
   useEffect(() => {
     const url = String(state.settings.healthSheetUrl || "").trim();
@@ -407,23 +427,34 @@ function App() {
     calories: sum.calories + Number(item.calories || 0)
   }), { protein: 0, carbs: 0, fat: 0, calories: 0 }), [dietEntries]);
   const dietTargetCalories = dietTargetEntry ? Number(dietTargetEntry.targetCalories || 0) : 0;
+  const dietTargetProtein = dietTargetEntry ? Number(dietTargetEntry.targetProtein || 0) : 0;
+  const dietTargetCarbs = dietTargetEntry ? Number(dietTargetEntry.targetCarbs || 0) : 0;
+  const dietTargetFat = dietTargetEntry ? Number(dietTargetEntry.targetFat || 0) : 0;
   const dietConsumedCalories = Number(dietDayTotals.calories || 0);
 
   const dietDayChart = useMemo(() => {
-    const maxY = Math.max(1, dietTargetCalories, dietConsumedCalories) * 1.1;
-    const width = 520;
-    const height = 220;
-    const leftPad = 52;
-    const rightPad = 18;
-    const topPad = 16;
-    const bottomPad = 48;
+    const width = 560;
+    const height = 240;
+    const leftPad = 48;
+    const rightPad = 16;
+    const topPad = 24;
+    const bottomPad = 52;
     const plotH = height - topPad - bottomPad;
-    const barW = 110;
-    const xTarget = 150;
-    const xConsumed = 300;
-    const toY = (value) => topPad + ((maxY - Math.max(0, Number(value || 0))) / maxY) * plotH;
-    return { width, height, leftPad, rightPad, bottomPad, barW, xTarget, xConsumed, toY, maxY };
-  }, [dietTargetCalories, dietConsumedCalories]);
+    const plotW = width - leftPad - rightPad;
+    const groupW = plotW / 4;
+    const barW = Math.floor(groupW * 0.3);
+    const barGap = Math.floor(groupW * 0.06);
+    const barOffset = (groupW - barW * 2 - barGap) / 2;
+
+    const groups = [
+      { label: "Calories", target: dietTargetCalories, consumed: dietConsumedCalories },
+      { label: "Protein (g)", target: dietTargetProtein, consumed: dietDayTotals.protein },
+      { label: "Carbs (g)", target: dietTargetCarbs, consumed: dietDayTotals.carbs },
+      { label: "Fat (g)", target: dietTargetFat, consumed: dietDayTotals.fat }
+    ];
+
+    return { width, height, leftPad, rightPad, topPad, bottomPad, plotH, groupW, barW, barGap, barOffset, groups };
+  }, [dietTargetCalories, dietConsumedCalories, dietTargetProtein, dietTargetCarbs, dietTargetFat, dietDayTotals]);
 
   const settingsCapacitySnapshot = useMemo(() => {
     const rows = {
@@ -535,6 +566,14 @@ function App() {
     } else {
       input.focus();
     }
+  }
+
+  function openDietTargetForm() {
+    setShowDietTargetForm(true);
+  }
+
+  function closeDietTargetForm() {
+    setShowDietTargetForm(false);
   }
 
   function openPortfolioEditor(monthValue = portfolioMonth) {
@@ -731,6 +770,9 @@ function App() {
 
   async function saveDietTarget() {
     const targetCalories = Number(dietTargetCaloriesInput || 0);
+    const targetProtein = Number(dietTargetProteinInput || 0);
+    const targetCarbs = Number(dietTargetCarbsInput || 0);
+    const targetFat = Number(dietTargetFatInput || 0);
     if (!Number.isFinite(targetCalories) || targetCalories < 0) {
       setStatusMessage("Enter valid target calories.");
       return;
@@ -741,6 +783,9 @@ function App() {
       const updated = {
         ...existing,
         targetCalories,
+        targetProtein,
+        targetCarbs,
+        targetFat,
         syncStatus: "pending"
       };
       setState((prev) => ({ ...prev, dietTargets: prev.dietTargets.map((item) => (item.id === existing.id ? updated : item)) }));
@@ -752,6 +797,9 @@ function App() {
       id: makeId(),
       date: dietDate,
       targetCalories,
+      targetProtein,
+      targetCarbs,
+      targetFat,
       ownerEmail: activeUserEmail,
       deleted: false,
       createdAt: new Date().toISOString(),
@@ -1211,7 +1259,6 @@ function App() {
             <div className="panel-heading">
               <h2>Home</h2>
             </div>
-            <p className="muted compact-row">Tap an app card to open that page.</p>
             <div className="home-app-grid">
               <button type="button" className="home-app-tile" onClick={() => setActiveTab("habit")}>
                 <span className="home-app-icon"><HabitTabIcon /></span>
@@ -1908,15 +1955,16 @@ function App() {
             <div className="panel-heading">
               <h2>Diet calculator</h2>
               <div className="panel-actions">
+                <button className="graph-icon-button" type="button" title="Set today target" onClick={openDietTargetForm}><TargetIcon /></button>
                 <button className="graph-icon-button" type="button" title="Toggle graph" onClick={() => setShowDietGraph((prev) => !prev)}><GraphIcon /></button>
               </div>
             </div>
 
             <div className="summary-grid report-grid compact-row">
-              <article className="summary-card"><span>Protein (g)</span><strong>{formatNumber(dietDayTotals.protein)}</strong></article>
-              <article className="summary-card"><span>Carbs (g)</span><strong>{formatNumber(dietDayTotals.carbs)}</strong></article>
-              <article className="summary-card"><span>Fat (g)</span><strong>{formatNumber(dietDayTotals.fat)}</strong></article>
-              <article className="summary-card stock-total-card"><span>Calories</span><strong>{formatNumber(dietDayTotals.calories)}</strong></article>
+              <article className="summary-card"><span>Protein (g)</span><strong>{formatNumber(dietDayTotals.protein)}</strong>{dietTargetProtein > 0 && <small className="muted">Target: {formatNumber(dietTargetProtein)}</small>}</article>
+              <article className="summary-card"><span>Carbs (g)</span><strong>{formatNumber(dietDayTotals.carbs)}</strong>{dietTargetCarbs > 0 && <small className="muted">Target: {formatNumber(dietTargetCarbs)}</small>}</article>
+              <article className="summary-card"><span>Fat (g)</span><strong>{formatNumber(dietDayTotals.fat)}</strong>{dietTargetFat > 0 && <small className="muted">Target: {formatNumber(dietTargetFat)}</small>}</article>
+              <article className="summary-card stock-total-card"><span>Calories</span><strong>{formatNumber(dietDayTotals.calories)}</strong>{dietTargetCalories > 0 && <small className="muted">Target: {formatNumber(dietTargetCalories)}</small>}</article>
             </div>
 
             <div className="field-grid three-up compact-row">
@@ -1924,32 +1972,77 @@ function App() {
                 Diet date
                 <input type="date" value={dietDate} onChange={(event) => setDietDate(event.target.value || getToday())} />
               </label>
-              <label>
-                Target calories
-                <input type="number" step="1" value={dietTargetCaloriesInput} onChange={(event) => setDietTargetCaloriesInput(event.target.value)} placeholder="Set daily target" />
-              </label>
-              <div className="panel-actions diet-target-actions">
-                <button className="button" type="button" onClick={saveDietTarget}>Save target</button>
-                <button className="button button-secondary" type="button" onClick={deleteDietTarget} disabled={!dietTargetEntry}>Delete target</button>
-              </div>
             </div>
+            {showDietTargetForm && (
+              <div className="diet-target-overlay" onClick={closeDietTargetForm} role="presentation">
+                <section className="diet-target-modal" role="dialog" aria-modal="true" aria-label="Set diet targets" onClick={(event) => event.stopPropagation()}>
+                  <div className="diet-target-modal-header">
+                    <div>
+                      <h3>Set daily target</h3>
+                      <p className="muted">Enter target calories and macro grams for the selected day.</p>
+                    </div>
+                    <button className="close-icon-button" type="button" aria-label="Close target form" onClick={closeDietTargetForm}><CloseIcon /></button>
+                  </div>
+                  <div className="field-grid four-up compact-row">
+                    <label>
+                      Target calories
+                      <input id="diet-target-calories-input" type="number" step="1" value={dietTargetCaloriesInput} onChange={(event) => setDietTargetCaloriesInput(event.target.value)} placeholder="kcal" />
+                    </label>
+                    <label>
+                      Target protein (g)
+                      <input type="number" step="0.1" value={dietTargetProteinInput} onChange={(event) => setDietTargetProteinInput(event.target.value)} placeholder="g" />
+                    </label>
+                    <label>
+                      Target carbs (g)
+                      <input type="number" step="0.1" value={dietTargetCarbsInput} onChange={(event) => setDietTargetCarbsInput(event.target.value)} placeholder="g" />
+                    </label>
+                    <label>
+                      Target fat (g)
+                      <input type="number" step="0.1" value={dietTargetFatInput} onChange={(event) => setDietTargetFatInput(event.target.value)} placeholder="g" />
+                    </label>
+                  </div>
+                  <div className="panel-actions compact-row diet-target-actions">
+                    <button className="button" type="button" onClick={saveDietTarget}>Save target</button>
+                    <button className="button button-secondary" type="button" onClick={deleteDietTarget} disabled={!dietTargetEntry}>Delete target</button>
+                    <button className="button button-secondary" type="button" onClick={closeDietTargetForm}>Close</button>
+                  </div>
+                </section>
+              </div>
+            )}
 
             {showDietGraph && (
               <section className="graph-panel">
                 <div className="graph-header">
                   <h3>Diet target vs consumed</h3>
-                  <p className="muted">Target is manual. Consumed is from today's food entries.</p>
+                  <p className="muted">Blue = target · Red = consumed. Each metric scaled independently.</p>
                 </div>
                 <div className="line-chart-wrap">
-                  <svg viewBox={`0 0 ${dietDayChart.width} ${dietDayChart.height}`} className="line-chart" role="img" aria-label="Diet target versus consumed calories chart">
+                  <svg viewBox={`0 0 ${dietDayChart.width} ${dietDayChart.height}`} className="line-chart" role="img" aria-label="Diet macros target versus consumed chart">
                     <line x1={dietDayChart.leftPad} y1={dietDayChart.height - dietDayChart.bottomPad} x2={dietDayChart.width - dietDayChart.rightPad} y2={dietDayChart.height - dietDayChart.bottomPad} className="line-grid" />
-                    <rect x={dietDayChart.xTarget} y={dietDayChart.toY(dietTargetCalories)} width={dietDayChart.barW} height={(dietDayChart.height - dietDayChart.bottomPad) - dietDayChart.toY(dietTargetCalories)} className="diet-target-bar" />
-                    <rect x={dietDayChart.xConsumed} y={dietDayChart.toY(dietConsumedCalories)} width={dietDayChart.barW} height={(dietDayChart.height - dietDayChart.bottomPad) - dietDayChart.toY(dietConsumedCalories)} className="diet-consumed-bar" />
-                    <text x={dietDayChart.xTarget + (dietDayChart.barW / 2)} y={dietDayChart.height - 16} textAnchor="middle" className="line-x-label">Target</text>
-                    <text x={dietDayChart.xConsumed + (dietDayChart.barW / 2)} y={dietDayChart.height - 16} textAnchor="middle" className="line-x-label">Consumed</text>
-                    <text x={dietDayChart.xTarget + (dietDayChart.barW / 2)} y={dietDayChart.toY(dietTargetCalories) - 6} textAnchor="middle" className="line-y-label">{formatNumber(dietTargetCalories)}</text>
-                    <text x={dietDayChart.xConsumed + (dietDayChart.barW / 2)} y={dietDayChart.toY(dietConsumedCalories) - 6} textAnchor="middle" className="line-y-label">{formatNumber(dietConsumedCalories)}</text>
+                    {dietDayChart.groups.map((group, i) => {
+                      const maxVal = Math.max(1, group.target, group.consumed) * 1.1;
+                      const baseY = dietDayChart.height - dietDayChart.bottomPad;
+                      const targetH = Math.max(0, (group.target / maxVal) * dietDayChart.plotH);
+                      const consumedH = Math.max(0, (group.consumed / maxVal) * dietDayChart.plotH);
+                      const groupX = dietDayChart.leftPad + i * dietDayChart.groupW;
+                      const targetX = groupX + dietDayChart.barOffset;
+                      const consumedX = targetX + dietDayChart.barW + dietDayChart.barGap;
+                      const centerX = groupX + dietDayChart.groupW / 2;
+                      return (
+                        <g key={group.label}>
+                          <rect x={targetX} y={baseY - targetH} width={dietDayChart.barW} height={targetH} fill="#2563eb" rx="2" />
+                          <rect x={consumedX} y={baseY - consumedH} width={dietDayChart.barW} height={consumedH} fill="#ef4444" rx="2" />
+                          <text x={centerX} y={baseY + 16} textAnchor="middle" className="line-x-label">{group.label}</text>
+                          {group.target > 0 && <text x={targetX + dietDayChart.barW / 2} y={Math.max(dietDayChart.topPad + 10, baseY - targetH - 4)} textAnchor="middle" className="line-y-label">{Math.round(group.target)}</text>}
+                          {group.consumed > 0 && <text x={consumedX + dietDayChart.barW / 2} y={Math.max(dietDayChart.topPad + 10, baseY - consumedH - 4)} textAnchor="middle" className="line-y-label">{Math.round(group.consumed)}</text>}
+                        </g>
+                      );
+                    })}
                   </svg>
+                  <div className="line-legend">
+                    <span><i className="legend-dot" style={{background:"#2563eb"}}></i>Target (blue)</span>
+                    <span><i className="legend-dot legend-achieved"></i>Consumed (red)</span>
+                  </div>
                 </div>
               </section>
             )}
@@ -1961,23 +2054,35 @@ function App() {
                   {dietFoodOptions.map((food) => <option key={food.name} value={food.name}>{food.name} ({food.serving})</option>)}
                 </select>
               </label>
-              <label>
-                Input mode
-                <select value={dietInputMode} onChange={(event) => setDietInputMode(event.target.value)}>
-                  <option value="serving">Quantity (servings)</option>
-                  <option value="weight">Weight (grams)</option>
-                </select>
-              </label>
             </div>
 
-            <div className="field-grid two-up compact-row">
+            <div className="panel-actions compact-row diet-input-toggle">
+              <button className="button button-secondary" type="button" onClick={() => {
+                setDietInputMode((prev) => {
+                  const next = prev === "serving" ? "weight" : "serving";
+                  if (next === "weight") {
+                    setDietServingQty("");
+                  } else {
+                    setDietWeightQty("");
+                    if (!dietServingQty) {
+                      setDietServingQty("1");
+                    }
+                  }
+                  return next;
+                });
+              }}>
+                Mode: {dietInputMode === "serving" ? "Quantity" : "Weight"}
+              </button>
+            </div>
+
+            <div className="field-grid compact-row">
               <label>
-                Quantity (servings)
-                <input type="number" step="0.1" value={dietServingQty} disabled={dietInputMode !== "serving"} onChange={(event) => setDietServingQty(event.target.value)} />
-              </label>
-              <label>
-                Weight (g)
-                <input type="number" step="1" value={dietWeightQty} disabled={dietInputMode !== "weight"} onChange={(event) => setDietWeightQty(event.target.value)} />
+                {dietInputMode === "weight" ? "Weight (g)" : "Quantity (servings)"}
+                {dietInputMode === "weight" ? (
+                  <input type="number" step="1" value={dietWeightQty} onChange={(event) => setDietWeightQty(event.target.value)} placeholder="grams" />
+                ) : (
+                  <input type="number" step="0.1" value={dietServingQty} onChange={(event) => setDietServingQty(event.target.value)} placeholder="servings" />
+                )}
               </label>
             </div>
 
@@ -1990,7 +2095,6 @@ function App() {
                 <thead>
                   <tr>
                     <th>Food</th>
-                    <th>Input</th>
                     <th>Protein</th>
                     <th>Carbs</th>
                     <th>Fat</th>
@@ -2003,7 +2107,6 @@ function App() {
                   {dietEntries.length ? dietEntries.map((entry) => (
                     <tr key={entry.id}>
                       <td>{entry.foodName}</td>
-                      <td>{formatNumber(entry.quantity)} {entry.quantityUnit}</td>
                       <td>{formatNumber(entry.protein)}</td>
                       <td>{formatNumber(entry.carbs)}</td>
                       <td>{formatNumber(entry.fat)}</td>
@@ -2011,7 +2114,7 @@ function App() {
                       <td>{makeSyncIcon(entry.syncStatus)}</td>
                       <td><button className="icon-button" type="button" title="Delete food" onClick={() => deleteDietEntry(entry.id)}><TrashIcon /></button></td>
                     </tr>
-                  )) : <tr><td colSpan="8">No food added for this date.</td></tr>}
+                  )) : <tr><td colSpan="7">No food added for this date.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2199,6 +2302,9 @@ function normalizeDietTarget(entry) {
     id: entry.id || makeId(),
     date: String(entry.date || getToday()),
     targetCalories: Number(entry.targetCalories || 0),
+    targetProtein: Number(entry.targetProtein || 0),
+    targetCarbs: Number(entry.targetCarbs || 0),
+    targetFat: Number(entry.targetFat || 0),
     ownerEmail: String(entry.ownerEmail || "").trim().toLowerCase(),
     deleted: Boolean(entry.deleted),
     createdAt: entry.createdAt || new Date().toISOString(),
@@ -2669,6 +2775,10 @@ function SettingsIcon() {
 
 function GraphIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h2v18H3V3Zm16 6h2v12h-2V9ZM11 13h2v8h-2v-8Zm-4-4h2v12H7V9Zm8-6h2v18h-2V3Z" fill="currentColor" /></svg>;
+}
+
+function TargetIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7V3Zm0 4a5 5 0 1 0 5 5h-2a3 3 0 1 1-3-3V7Zm0 4a1 1 0 1 0 1 1 1 1 0 0 0-1-1Z" fill="currentColor" /></svg>;
 }
 
 function HomeTabIcon() {

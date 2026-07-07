@@ -517,6 +517,38 @@ select {
   flex-wrap: wrap;
 }
 
+.diet-target-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(11, 18, 32, 0.5);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.diet-target-modal {
+  width: min(92vw, 760px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.diet-target-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin-bottom: 0.85rem;
+}
+
+.diet-target-modal-header h3 {
+  margin: 0;
+}
+
 .row-action-group {
   display: inline-flex;
   gap: 0.35rem;
@@ -609,6 +641,10 @@ select {
 
 .field-grid.three-up {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.field-grid.four-up {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .report-grid {
@@ -1174,6 +1210,7 @@ th {
   .field-grid.three-up,
   .field-grid.two-up,
   .report-grid,
+  .field-grid.four-up,
   .toolbar-grid-two,
   .portfolio-chart-grid,
   .pie-chart-layout,
@@ -1294,6 +1331,7 @@ th {
   }
 
   /* All multi-column grids → single column */
+    .field-grid.four-up,
   .field-grid.three-up,
   .field-grid.two-up,
   .report-grid,
