@@ -166,6 +166,9 @@ function App() {
   const [showHabitGraph, setShowHabitGraph] = useState(false);
   const [showTaskGraph, setShowTaskGraph] = useState(false);
   const [showTradeGraph, setShowTradeGraph] = useState(false);
+  const [showTradeCalendar, setShowTradeCalendar] = useState(false);
+  const [tradeMonth, setTradeMonth] = useState(getToday().slice(0, 7));
+  const [selectedTradeDay, setSelectedTradeDay] = useState("");
   const [showPortfolioGraph, setShowPortfolioGraph] = useState(false);
   const [showStockGraph, setShowStockGraph] = useState(false);
   const [showDietGraph, setShowDietGraph] = useState(true);
@@ -395,6 +398,45 @@ function App() {
     return [...new Set([String(new Date().getFullYear()), ...years])].sort((a, b) => b.localeCompare(a));
   }, [state.portfolios, activeUserEmail]);
 
+  const tradeCalendar = useMemo(() => {
+    const byDate = {};
+    dailyTradesAsc.forEach((trade) => {
+      byDate[trade.date] = trade;
+    });
+
+    const [yearPart, monthPart] = String(tradeMonth || getToday().slice(0, 7)).split("-");
+    const year = Number(yearPart);
+    const month = Number(monthPart);
+    const totalDays = getDaysInMonth(tradeMonth);
+    const leadingBlanks = year && month ? new Date(year, month - 1, 1).getDay() : 0;
+
+    const cells = [];
+    for (let index = 0; index < leadingBlanks; index += 1) {
+      cells.push({ blank: true, key: `blank-${index}` });
+    }
+
+    let monthTotal = 0;
+    for (let day = 1; day <= totalDays; day += 1) {
+      const dateKey = `${tradeMonth}-${String(day).padStart(2, "0")}`;
+      const trade = byDate[dateKey];
+      const hasValue = trade && trade.achieved !== undefined && trade.achieved !== null && trade.achieved !== "";
+      const achieved = hasValue ? Number(trade.achieved || 0) : null;
+      if (hasValue) {
+        monthTotal += achieved;
+      }
+
+      cells.push({
+        blank: false,
+        key: dateKey,
+        day,
+        hasValue,
+        achieved
+      });
+    }
+
+    return { cells, monthTotal };
+  }, [dailyTradesAsc, tradeMonth]);
+
   const habitCompletedCount = visibleHabits.filter((habit) => isHabitCompletedOnDate(habit, habitDate)).length;
   const habitPendingCount = visibleHabits.length - habitCompletedCount;
   const habitCompletedPercent = visibleHabits.length ? (habitCompletedCount / visibleHabits.length) * 100 : 0;
@@ -522,8 +564,10 @@ function App() {
     const spanX = Math.max(width - leftPad - rightPad, 1);
     const spanY = Math.max(height - topPad - bottomPad, 1);
 
-    const targetValues = dailyTradesAsc.map((trade) => Number(trade.target || 0));
-    const achievedValues = dailyTradesAsc.map((trade) => Number(trade.achieved || 0));
+    let targetRunning = 0;
+    let achievedRunning = 0;
+    const targetValues = dailyTradesAsc.map((trade) => (targetRunning += Number(trade.target || 0)));
+    const achievedValues = dailyTradesAsc.map((trade) => (achievedRunning += Number(trade.achieved || 0)));
     const allValues = [...targetValues, ...achievedValues];
     let minY = Math.min(0, ...allValues);
     let maxY = Math.max(1, ...allValues);
@@ -539,8 +583,9 @@ function App() {
     };
 
     const toY = (value) => topPad + ((maxY - value) / (maxY - minY)) * spanY;
-    const targetPoints = dailyTradesAsc.map((trade, index) => `${toX(index)},${toY(Number(trade.target || 0))}`).join(" ");
-    const achievedPoints = dailyTradesAsc.map((trade, index) => `${toX(index)},${toY(Number(trade.achieved || 0))}`).join(" ");
+
+    const targetPoints = targetValues.map((value, index) => `${toX(index)},${toY(value)}`).join(" ");
+    const achievedPoints = achievedValues.map((value, index) => `${toX(index)},${toY(value)}`).join(" ");
 
     return { width, height, leftPad, rightPad, bottomPad, targetPoints, achievedPoints, yTicks: [maxY, (maxY + minY) / 2, minY], toX, toY };
   }, [dailyTradesAsc]);
@@ -1515,6 +1560,7 @@ function App() {
             <div className="panel-heading">
               <h2>Trading tracker</h2>
               <div className="panel-actions">
+                <button className="graph-icon-button" type="button" title="Toggle calendar" onClick={() => setShowTradeCalendar((prev) => !prev)}><CalendarIcon /></button>
                 <button className="graph-icon-button" type="button" title="Toggle graph" onClick={() => setShowTradeGraph((prev) => !prev)}><GraphIcon /></button>
                 <button className="icon-add-button" type="button" title="Add daily target" onClick={() => setShowTradeAdd((prev) => !prev)}><PlusIcon /></button>
               </div>
@@ -1536,11 +1582,75 @@ function App() {
               </form>
             )}
 
+            {showTradeCalendar && (
+              <section className="graph-panel">
+                <div className="graph-header">
+                  <h3>Profit / loss calendar</h3>
+                  <div className="input-with-icon">
+                    <input type="month" value={tradeMonth} onChange={(event) => setTradeMonth(event.target.value || getToday().slice(0, 7))} />
+                    <button className="input-icon-button" type="button" aria-label="Open month picker" onClick={(event) => openPickerFromButton(event)}>
+                      <CalendarIcon />
+                    </button>
+                  </div>
+                </div>
+                <div className="trade-calendar">
+                  <div className="trade-calendar-weekdays">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
+                      <span key={label} className="trade-calendar-weekday">{label}</span>
+                    ))}
+                  </div>
+                  <div className="trade-calendar-grid">
+                    {tradeCalendar.cells.map((cell) => {
+                      if (cell.blank) {
+                        return <div key={cell.key} className="trade-calendar-cell is-blank" />;
+                      }
+
+                      const stateClass = !cell.hasValue
+                        ? "is-empty"
+                        : cell.achieved > 0
+                          ? "is-profit"
+                          : cell.achieved < 0
+                            ? "is-loss"
+                            : "is-flat";
+
+                      const isSelected = cell.hasValue && selectedTradeDay === cell.key;
+                      const amountLabel = cell.achieved > 0 ? `Profit ${formatNumber(cell.achieved)}` : cell.achieved < 0 ? `Loss ${formatNumber(cell.achieved)}` : formatNumber(cell.achieved);
+
+                      return (
+                        <button
+                          key={cell.key}
+                          type="button"
+                          className={`trade-calendar-cell ${stateClass} ${isSelected ? "is-selected" : ""}`}
+                          title={cell.hasValue ? amountLabel : ""}
+                          disabled={!cell.hasValue}
+                          onClick={() => setSelectedTradeDay((prev) => (prev === cell.key ? "" : cell.key))}
+                        >
+                          <span className="trade-calendar-day">{cell.day}</span>
+                          {cell.hasValue && (
+                            <span className="trade-calendar-tooltip">{amountLabel}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="trade-calendar-footer">
+                    <span className={`trade-calendar-total ${tradeCalendar.monthTotal > 0 ? "is-profit" : tradeCalendar.monthTotal < 0 ? "is-loss" : ""}`}>
+                      Month total: {formatNumber(tradeCalendar.monthTotal)}
+                    </span>
+                    <div className="line-legend">
+                      <span><i className="legend-dot legend-target"></i>Profit</span>
+                      <span><i className="legend-dot legend-achieved"></i>Loss</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
             {showTradeGraph && (
               <section className="graph-panel">
                 <div className="graph-header">
-                  <h3>Daily PnL graph</h3>
-                  <p className="muted">X axis: day | Y axis: amount</p>
+                  <h3>Cumulative PnL graph</h3>
+                  <p className="muted">X axis: day | Y axis: running total (progressive sum)</p>
                 </div>
                 {tradeChart ? (
                   <div className="line-chart-wrap">
@@ -2775,6 +2885,10 @@ function SettingsIcon() {
 
 function GraphIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h2v18H3V3Zm16 6h2v12h-2V9ZM11 13h2v8h-2v-8Zm-4-4h2v12H7V9Zm8-6h2v18h-2V3Z" fill="currentColor" /></svg>;
+}
+
+function CalendarIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 2h2v2h6V2h2v2h3v18H4V4h3V2Zm-1 6v12h12V8H6Zm2 3h3v3H8v-3Z" fill="currentColor" /></svg>;
 }
 
 function TargetIcon() {

@@ -1143,6 +1143,127 @@ th {
   background: #b93a3a;
 }
 
+.trade-calendar {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.trade-calendar-weekdays,
+.trade-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.4rem;
+}
+
+.trade-calendar-weekday {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.trade-calendar-cell {
+  position: relative;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.trade-calendar-cell:disabled {
+  cursor: default;
+}
+
+.trade-calendar-cell.is-blank {
+  border: none;
+  background: transparent;
+}
+
+.trade-calendar-cell.is-empty {
+  background: #f6f2ff;
+  color: var(--muted);
+}
+
+.trade-calendar-cell.is-profit {
+  background: #2fae7f;
+  border-color: #1d8f64;
+  color: #fff;
+}
+
+.trade-calendar-cell.is-loss {
+  background: #e05656;
+  border-color: #b93a3a;
+  color: #fff;
+}
+
+.trade-calendar-cell.is-flat {
+  background: #f0f0f5;
+  color: var(--muted);
+}
+
+.trade-calendar-cell.is-selected {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+.trade-calendar-day {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.trade-calendar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.96);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background: #1f1235;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 5;
+}
+
+.trade-calendar-cell:hover .trade-calendar-tooltip,
+.trade-calendar-cell.is-selected .trade-calendar-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.trade-calendar-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.trade-calendar-total {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.trade-calendar-total.is-profit {
+  color: #1d8f64;
+}
+
+.trade-calendar-total.is-loss {
+  color: #b93a3a;
+}
+
 .bar-track {
   margin-top: 0.28rem;
   width: 100%;
