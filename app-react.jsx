@@ -1,4 +1,4 @@
-const { useEffect, useMemo, useState } = React;
+const { useEffect, useMemo, useRef, useState } = React;
 
 const STORAGE_KEY = "habitTaskTradingTracker.v7";
 const THEME_STORAGE_KEY = "lifetracker.theme";
@@ -252,6 +252,7 @@ function App() {
   const [reportModules, setReportModules] = useState({ habit: true, task: true, trading: false, portfolio: false, stocks: false, workout: false, diet: false });
 
   const [showSettings, setShowSettings] = useState(false);
+  const settingsWrapRef = useRef(null);
   const [showHabitAdd, setShowHabitAdd] = useState(false);
   const [showTaskAdd, setShowTaskAdd] = useState(false);
   const [showTradeAdd, setShowTradeAdd] = useState(false);
@@ -302,22 +303,6 @@ function App() {
   const [portfolioFormItems, setPortfolioFormItems] = useState(createDefaultPortfolioFormItems);
   const [newPortfolioCategory, setNewPortfolioCategory] = useState("");
   const [tradeAchievedDrafts, setTradeAchievedDrafts] = useState({});
-  const [savedRowIds, setSavedRowIds] = useState({});
-
-  function markRowSaved(rowId) {
-    setSavedRowIds((prev) => ({ ...prev, [rowId]: true }));
-  }
-
-  function markRowDirty(rowId) {
-    setSavedRowIds((prev) => {
-      if (!prev[rowId]) {
-        return prev;
-      }
-      const next = { ...prev };
-      delete next[rowId];
-      return next;
-    });
-  }
 
   const portfolioCategories = useMemo(() => {
     const fromSettings = Array.isArray(state.settings.portfolioCategories) ? state.settings.portfolioCategories : [];
@@ -349,6 +334,28 @@ function App() {
     const timer = window.setTimeout(() => setStatusMessage(""), 2600);
     return () => window.clearTimeout(timer);
   }, [statusMessage]);
+
+  useEffect(() => {
+    if (!showSettings) {
+      return undefined;
+    }
+    function handlePointerDown(event) {
+      if (settingsWrapRef.current && !settingsWrapRef.current.contains(event.target)) {
+        setShowSettings(false);
+      }
+    }
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setShowSettings(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showSettings]);
 
   useEffect(() => {
     setPortfolioGraphMonth(portfolioMonth || getCurrentMonth());
@@ -929,28 +936,35 @@ function App() {
     setStatusMessage(`Added food: ${name}`);
   }
 
-  async function updateWorkoutEntry(entryId, field, value) {
-    markRowDirty(entryId);
+  async function updateWorkoutEntry(entryId, field, value, sync) {
+    let updated = null;
     setState((prev) => ({
       ...prev,
       workouts: prev.workouts.map((entry) => {
         if (entry.id !== entryId) {
           return entry;
         }
+        let next;
         if (field === "weight" || field === "reps") {
-          return {
+          next = {
             ...entry,
             [field]: value === "" ? null : Number(value),
             syncStatus: "pending"
           };
+        } else {
+          next = {
+            ...entry,
+            [field]: value,
+            syncStatus: "pending"
+          };
         }
-        return {
-          ...entry,
-          [field]: value,
-          syncStatus: "pending"
-        };
+        updated = next;
+        return next;
       })
     }));
+    if (sync && updated) {
+      await tryImmediateSync("workout", updated);
+    }
   }
 
   async function saveWorkoutEntry(entryId) {
@@ -958,7 +972,6 @@ function App() {
     if (!entry) {
       return;
     }
-    markRowSaved(entryId);
     await tryImmediateSync("workout", entry);
   }
 
@@ -1290,7 +1303,6 @@ function App() {
       })
     }));
     if (updated) {
-      markRowSaved(tradeId);
       await tryImmediateSync("trade", updated);
     }
   }
@@ -1640,7 +1652,7 @@ function App() {
             >
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
             </button>
-            <div className="header-settings-wrap">
+            <div className="header-settings-wrap" ref={settingsWrapRef}>
               <button className="header-settings-btn" title="Settings" type="button" aria-expanded={showSettings} aria-controls="headerSettingsPanel" aria-label="Settings" onClick={() => setShowSettings((prev) => !prev)}>
                 <SettingsIcon />
               </button>
@@ -1888,8 +1900,6 @@ function App() {
                     <th>Name</th>
                     <th>Start</th>
                     <th>End</th>
-                    <th className="icon-col"></th>
-                    <th className="icon-col"></th>
                     <th className="icon-col">Sync</th>
                   </tr>
                 </thead>
@@ -1897,21 +1907,14 @@ function App() {
                   {visibleHabits.length ? visibleHabits.map((habit) => {
                     const completed = isHabitCompletedOnDate(habit, habitDate);
                     return (
-                      <tr key={habit.id} className={completed ? "completed-row" : ""}>
+                      <SwipeRow key={habit.id} className={completed ? "completed-row" : ""} title="Tap to toggle, swipe to delete" onTap={() => toggleHabitCompletion(habit.id, !completed)} onDelete={() => deleteHabit(habit.id)}>
                         <td>{habit.name || "-"}</td>
                         <td>{formatTime(habit.startTime)}</td>
                         <td>{formatTime(habit.endTime)}</td>
-                        <td>
-                          <label className="switch">
-                            <input type="checkbox" checked={completed} onChange={(event) => toggleHabitCompletion(habit.id, event.target.checked)} />
-                            <span className="switch-slider"></span>
-                          </label>
-                        </td>
-                        <td><button className="icon-button" type="button" aria-label="Delete habit" title="Delete habit" onClick={() => deleteHabit(habit.id)}><TrashIcon /></button></td>
                         <td>{makeSyncIcon(habit.syncStatus)}</td>
-                      </tr>
+                      </SwipeRow>
                     );
-                  }) : <tr><td colSpan="6">No habits available for this date.</td></tr>}
+                  }) : <tr><td colSpan="4">No habits available for this date.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -1990,14 +1993,12 @@ function App() {
                       </button>
                     </th>
                     <th>Notes</th>
-                    <th className="icon-col"></th>
-                    <th className="icon-col"></th>
                     <th className="icon-col">Sync</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTasks.length ? filteredTasks.map((task) => (
-                    <tr key={task.id} className={task.completed ? "completed-row" : ""}>
+                    <SwipeRow key={task.id} className={task.completed ? "completed-row" : ""} title="Tap to toggle, swipe to delete" onTap={() => toggleTaskCompletion(task.id, !task.completed)} onDelete={() => deleteTask(task.id)}>
                       <td>{task.title || "-"}</td>
                       <td>{formatDateTime(task.completionTime)}</td>
                       <td>
@@ -2005,16 +2006,9 @@ function App() {
                           ? <button className="icon-button" type="button" aria-label="View note" title="View note" onClick={() => setNoteModalTask(task)}><NotesIcon /></button>
                           : <span className="muted">-</span>}
                       </td>
-                      <td>
-                        <label className="switch">
-                          <input type="checkbox" checked={task.completed} onChange={(event) => toggleTaskCompletion(task.id, event.target.checked)} />
-                          <span className="switch-slider"></span>
-                        </label>
-                      </td>
-                      <td><button className="icon-button" type="button" aria-label="Delete task" title="Delete task" onClick={() => deleteTask(task.id)}><TrashIcon /></button></td>
                       <td>{makeSyncIcon(task.syncStatus)}</td>
-                    </tr>
-                  )) : <tr><td colSpan="6">No tasks found.</td></tr>}
+                    </SwipeRow>
+                  )) : <tr><td colSpan="4">No tasks found.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2174,8 +2168,6 @@ function App() {
                     <th>Date</th>
                     <th>Target</th>
                     <th>Achieved</th>
-                    <th className="icon-col">Save</th>
-                    <th className="icon-col"></th>
                     <th className="icon-col">Sync</th>
                   </tr>
                 </thead>
@@ -2184,20 +2176,14 @@ function App() {
                     const draftValue = tradeAchievedDrafts[trade.id];
                     const value = draftValue !== undefined ? draftValue : trade.achieved;
                     return (
-                      <tr key={trade.id}>
+                      <SwipeRow key={trade.id} onDelete={() => deleteTrade(trade.id)}>
                         <td>{formatShortDate(trade.date)}</td>
                         <td>{formatNumber(trade.target)}</td>
-                        <td><input type="number" step="0.01" value={value ?? ""} onChange={(event) => { markRowDirty(trade.id); setTradeAchievedDrafts((prev) => ({ ...prev, [trade.id]: event.target.value })); }} /></td>
-                        <td><button className={`icon-save-button${savedRowIds[trade.id] ? " is-saved" : ""}`} type="button" title="Save achieved" aria-label="Save achieved" onClick={() => saveAchieved(trade.id)}><SaveIcon /></button></td>
-                        <td>
-                          <div className="row-action-group">
-                            <button className="icon-button" type="button" aria-label="Delete target" title="Delete target" onClick={() => deleteTrade(trade.id)}><TrashIcon /></button>
-                          </div>
-                        </td>
+                        <td><input type="number" step="0.01" value={value ?? ""} onChange={(event) => setTradeAchievedDrafts((prev) => ({ ...prev, [trade.id]: event.target.value }))} onBlur={() => saveAchieved(trade.id)} /></td>
                         <td>{makeSyncIcon(trade.syncStatus)}</td>
-                      </tr>
+                      </SwipeRow>
                     );
-                  }) : <tr><td colSpan="6">No daily target rows for {formatMonthLabel(tradeMonth)}.</td></tr>}
+                  }) : <tr><td colSpan="4">No daily target rows for {formatMonthLabel(tradeMonth)}.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2359,8 +2345,7 @@ function App() {
                     <th>Investment</th>
                     <th>Spent</th>
                     <th>Remaining</th>
-                    <th className="icon-col">Save</th>
-                    <th className="icon-col"></th>
+                    <th className="icon-col">Edit</th>
                     <th className="icon-col">Sync</th>
                   </tr>
                 </thead>
@@ -2368,23 +2353,21 @@ function App() {
                   {portfolioEntriesDesc.length ? portfolioEntriesDesc.map((entry) => {
                     const summary = summarizePortfolioItems(entry.items);
                     return (
-                      <tr key={entry.id} className={entry.month === portfolioMonth ? "selected-row" : ""}>
+                      <SwipeRow key={entry.id} onDelete={() => deletePortfolio(entry.id)} className={entry.month === portfolioMonth ? "selected-row" : ""}>
                         <td>{formatMonthLabel(entry.month)}</td>
                         <td>{formatNumber(summary.income)}</td>
                         <td>{formatNumber(summary.investment)}</td>
                         <td>{formatNumber(summary.spent)}</td>
                         <td>{formatNumber(summary.remaining)}</td>
-                        <td><button className={`icon-save-button${savedRowIds[entry.id] ? " is-saved" : ""}`} type="button" title="Save month" aria-label="Save month" onClick={() => { markRowSaved(entry.id); syncPortfolio(entry.id); }}><SaveIcon /></button></td>
                         <td>
                           <div className="row-action-group">
                             <button className="icon-button" type="button" aria-label="Edit month" title="Edit month" onClick={() => openPortfolioEditor(entry.month)}><EditIcon /></button>
-                            <button className="icon-button" type="button" aria-label="Delete month" title="Delete month" onClick={() => deletePortfolio(entry.id)}><TrashIcon /></button>
                           </div>
                         </td>
                         <td>{makeSyncIcon(entry.syncStatus)}</td>
-                      </tr>
+                      </SwipeRow>
                     );
-                  }) : <tr><td colSpan="8">No portfolio months saved yet.</td></tr>}
+                  }) : <tr><td colSpan="7">No portfolio months saved yet.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2445,7 +2428,6 @@ function App() {
                     <th>Buy date</th>
                     <th>Quantity</th>
                     <th>Invested</th>
-                    <th className="icon-col"></th>
                     <th className="icon-col">Sync</th>
                   </tr>
                 </thead>
@@ -2453,16 +2435,15 @@ function App() {
                   {stocksDesc.length ? stocksDesc.map((stock) => {
                     const invested = Number(stock.buyAmount || 0) * Number(stock.quantity || 0);
                     return (
-                      <tr key={stock.id}>
+                      <SwipeRow key={stock.id} title="Swipe to delete" onDelete={() => deleteStock(stock.id)}>
                         <td>{stock.stockName || "-"}</td>
                         <td>{stock.category || "-"}</td>
                         <td>{formatNumber(stock.buyAmount)}</td>
                         <td>{stock.buyDate || "-"}</td>
                         <td>{formatNumber(stock.quantity)}</td>
                         <td>{formatNumber(invested)}</td>
-                        <td><button className="icon-button" type="button" title="Delete stock" onClick={() => deleteStock(stock.id)}><TrashIcon /></button></td>
                         <td>{makeSyncIcon(stock.syncStatus)}</td>
-                      </tr>
+                      </SwipeRow>
                     );
                   }) : <tr><td colSpan="7">No stocks saved yet.</td></tr>}
                 </tbody>
@@ -2548,29 +2529,25 @@ function App() {
                     <th>Weight</th>
                     <th>Unit</th>
                     <th>Reps</th>
-                    <th className="icon-col">Save</th>
-                    <th className="icon-col"></th>
                     <th className="icon-col">Sync</th>
                   </tr>
                 </thead>
                 <tbody>
                   {workoutEntries.length ? workoutEntries.map((entry) => (
-                    <tr key={entry.id}>
+                    <SwipeRow key={entry.id} onDelete={() => deleteWorkoutEntry(entry.id)}>
                       <td>{entry.bodyPartLabel}</td>
                       <td>{entry.subgroup} - {entry.exercise}</td>
-                      <td><input type="number" step="0.1" value={entry.weight ?? ""} onChange={(event) => updateWorkoutEntry(entry.id, "weight", event.target.value)} /></td>
+                      <td><input type="number" step="0.1" value={entry.weight ?? ""} onChange={(event) => updateWorkoutEntry(entry.id, "weight", event.target.value)} onBlur={() => saveWorkoutEntry(entry.id)} /></td>
                       <td>
-                        <select value={entry.unit || "kg"} onChange={(event) => updateWorkoutEntry(entry.id, "unit", event.target.value)}>
+                        <select value={entry.unit || "kg"} onChange={(event) => updateWorkoutEntry(entry.id, "unit", event.target.value, true)}>
                           <option value="kg">kg</option>
                           <option value="lbs">lbs</option>
                         </select>
                       </td>
-                      <td><input type="number" step="1" value={entry.reps ?? ""} onChange={(event) => updateWorkoutEntry(entry.id, "reps", event.target.value)} /></td>
-                      <td><button className={`icon-save-button${savedRowIds[entry.id] ? " is-saved" : ""}`} type="button" title="Save workout" aria-label="Save workout" onClick={() => saveWorkoutEntry(entry.id)}><SaveIcon /></button></td>
-                      <td><button className="icon-button" type="button" title="Delete workout" onClick={() => deleteWorkoutEntry(entry.id)}><TrashIcon /></button></td>
+                      <td><input type="number" step="1" value={entry.reps ?? ""} onChange={(event) => updateWorkoutEntry(entry.id, "reps", event.target.value)} onBlur={() => saveWorkoutEntry(entry.id)} /></td>
                       <td>{makeSyncIcon(entry.syncStatus)}</td>
-                    </tr>
-                  )) : <tr><td colSpan="8">No workouts added for this date.</td></tr>}
+                    </SwipeRow>
+                  )) : <tr><td colSpan="6">No workouts added for this date.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2774,22 +2751,20 @@ function App() {
                     <th>Carbs</th>
                     <th>Fat</th>
                     <th>Calories</th>
-                    <th className="icon-col"></th>
                     <th className="icon-col">Sync</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dietEntries.length ? dietEntries.map((entry) => (
-                    <tr key={entry.id}>
+                    <SwipeRow key={entry.id} title="Swipe to delete" onDelete={() => deleteDietEntry(entry.id)}>
                       <td>{entry.foodName}</td>
                       <td>{formatNumber(entry.protein)}</td>
                       <td>{formatNumber(entry.carbs)}</td>
                       <td>{formatNumber(entry.fat)}</td>
                       <td>{formatNumber(entry.calories)}</td>
-                      <td><button className="icon-button" type="button" title="Delete food" onClick={() => deleteDietEntry(entry.id)}><TrashIcon /></button></td>
                       <td>{makeSyncIcon(entry.syncStatus)}</td>
-                    </tr>
-                  )) : <tr><td colSpan="7">No food added for this date.</td></tr>}
+                    </SwipeRow>
+                  )) : <tr><td colSpan="6">No food added for this date.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -3576,6 +3551,76 @@ function makeSyncIcon(status) {
   const icon = state === "synced" ? <CheckIcon /> : state === "failed" ? <WarningIcon /> : <ClockIcon />;
   const title = state === "synced" ? "Synced to sheet" : state === "failed" ? "Sync failed" : "Pending sync";
   return <span className={`sync-icon sync-${state}`} title={title} aria-label={title}>{icon}</span>;
+}
+
+function SwipeRow({ children, onDelete, onTap, className, title }) {
+  const [offset, setOffset] = useState(0);
+  const startXRef = useRef(null);
+  const movedRef = useRef(false);
+  const offsetRef = useRef(0);
+  const THRESHOLD = 120;
+
+  function begin(event) {
+    if (event.target.closest("input, select, button, textarea, a")) {
+      return;
+    }
+    startXRef.current = event.clientX;
+    movedRef.current = false;
+    if (event.currentTarget.setPointerCapture) {
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Pointer capture is best-effort; ignore failures.
+      }
+    }
+  }
+
+  function move(event) {
+    if (startXRef.current === null) {
+      return;
+    }
+    const delta = event.clientX - startXRef.current;
+    if (Math.abs(delta) > 6) {
+      movedRef.current = true;
+    }
+    offsetRef.current = delta;
+    setOffset(delta);
+  }
+
+  function end(event) {
+    if (startXRef.current === null) {
+      return;
+    }
+    startXRef.current = null;
+    const finalOffset = offsetRef.current;
+    offsetRef.current = 0;
+    setOffset(0);
+    if (Math.abs(finalOffset) > THRESHOLD) {
+      onDelete();
+      return;
+    }
+    if (!movedRef.current && onTap && !(event.target.closest && event.target.closest("input, select, button, textarea, a"))) {
+      onTap();
+    }
+  }
+
+  const style = offset
+    ? { transform: `translateX(${offset}px)`, opacity: Math.max(1 - Math.abs(offset) / 320, 0.25) }
+    : undefined;
+
+  return (
+    <tr
+      className={`swipe-row${offset ? " is-swiping" : ""}${onTap ? " clickable-row" : ""}${className ? " " + className : ""}`}
+      style={style}
+      title={title}
+      onPointerDown={begin}
+      onPointerMove={move}
+      onPointerUp={end}
+      onPointerCancel={end}
+    >
+      {children}
+    </tr>
+  );
 }
 
 function Modal({ title, subtitle, onClose, children }) {

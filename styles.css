@@ -1080,6 +1080,25 @@ select {
   background: var(--violet-soft);
 }
 
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background: var(--surface-soft);
+}
+
+.swipe-row {
+  touch-action: pan-y;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  will-change: transform;
+}
+
+.swipe-row.is-swiping {
+  transition: none;
+  cursor: grabbing;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
