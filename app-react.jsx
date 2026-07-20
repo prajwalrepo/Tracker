@@ -1609,7 +1609,7 @@ function App() {
         });
       });
       rows.sort((a, b) => a[0].localeCompare(b[0]));
-      sections.push({ key: "habit", title: "Habits", headers: ["Date", "Habit", "Completed"], rows });
+      sections.push({ key: "habit", title: "Habits", headers: ["Date", "Habit", "Achieved"], rows });
     }
 
     if (reportModules.task) {
@@ -1673,22 +1673,47 @@ function App() {
       return;
     }
 
-    const lines = [];
-    lines.push(`LifeTracker report,${reportFrom} to ${reportTo}`);
-    lines.push("");
-    sections.forEach((section) => {
-      lines.push(csvEscapeRow([section.title]));
-      lines.push(csvEscapeRow(section.headers));
-      if (section.rows.length) {
-        section.rows.forEach((row) => lines.push(csvEscapeRow(row)));
-      } else {
-        lines.push(csvEscapeRow(["No data in this range."]));
+    const usedNames = new Set();
+    const uniqueSheetName = (rawTitle) => {
+      let base = String(rawTitle || "Sheet").replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31) || "Sheet";
+      let name = base;
+      let counter = 2;
+      while (usedNames.has(name.toLowerCase())) {
+        const suffix = ` ${counter}`;
+        name = base.slice(0, 31 - suffix.length) + suffix;
+        counter += 1;
       }
-      lines.push("");
-    });
+      usedNames.add(name.toLowerCase());
+      return name;
+    };
 
-    downloadFile(`lifetracker-report-${reportFrom}_to_${reportTo}.csv`, "text/csv;charset=utf-8;", "\ufeff" + lines.join("\r\n"));
-    setStatusMessage("Report exported as Excel (CSV).");
+    const buildCell = (value) => `<Cell><Data ss:Type="String">${escapeHtml(String(value === null || value === undefined ? "" : value))}</Data></Cell>`;
+    const buildRow = (cells) => `<Row>${cells.map(buildCell).join("")}</Row>`;
+
+    const worksheets = sections.map((section) => {
+      const sheetName = uniqueSheetName(section.title);
+      const rowsXml = [];
+      rowsXml.push(buildRow([section.title]));
+      rowsXml.push(buildRow([`Range: ${reportFrom} to ${reportTo}`]));
+      rowsXml.push(buildRow([""]));
+      rowsXml.push(buildRow(section.headers));
+      if (section.rows.length) {
+        section.rows.forEach((row) => rowsXml.push(buildRow(row)));
+      } else {
+        rowsXml.push(buildRow(["No data in this range."]));
+      }
+      return `<Worksheet ss:Name="${escapeHtml(sheetName)}"><Table>${rowsXml.join("")}</Table></Worksheet>`;
+    }).join("");
+
+    const xml = `<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n` +
+      `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"` +
+      ` xmlns:o="urn:schemas-microsoft-com:office:office"` +
+      ` xmlns:x="urn:schemas-microsoft-com:office:excel"` +
+      ` xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"` +
+      ` xmlns:html="http://www.w3.org/TR/REC-html40">${worksheets}</Workbook>`;
+
+    downloadFile(`lifetracker-report-${reportFrom}_to_${reportTo}.xls`, "application/vnd.ms-excel", xml);
+    setStatusMessage("Report exported as Excel with a separate sheet per section.");
   }
 
   function exportReportPdf() {
@@ -1698,19 +1723,22 @@ function App() {
       return;
     }
 
-    const tablesHtml = sections.map((section) => {
+    const tablesHtml = sections.map((section, index) => {
       const head = section.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
       const body = section.rows.length
         ? section.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join("")}</tr>`).join("")
         : `<tr><td colspan="${section.headers.length}">No data in this range.</td></tr>`;
-      return `<h2>${escapeHtml(section.title)}</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      return `<section class="report-page${index === 0 ? " first-page" : ""}">` +
+        `<h1>LifeTracker report</h1><p class="report-meta">Range: ${escapeHtml(reportFrom)} to ${escapeHtml(reportTo)}</p>` +
+        `<h2>${escapeHtml(section.title)}</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></section>`;
     }).join("");
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>LifeTracker report</title>` +
-      `<style>body{font-family:Arial,Helvetica,sans-serif;margin:24px;color:#111}h1{font-size:20px}h2{font-size:15px;margin-top:22px}` +
+      `<style>body{font-family:Arial,Helvetica,sans-serif;margin:24px;color:#111}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin-top:14px}` +
       `table{border-collapse:collapse;width:100%;margin-top:8px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;text-align:left}` +
-      `th{background:#f0f0f5}.report-meta{color:#555;font-size:12px;margin-bottom:12px}</style></head><body>` +
-      `<h1>LifeTracker report</h1><p class="report-meta">Range: ${escapeHtml(reportFrom)} to ${escapeHtml(reportTo)}</p>${tablesHtml}` +
+      `th{background:#f0f0f5}.report-meta{color:#555;font-size:12px;margin-bottom:12px}` +
+      `.report-page{page-break-after:always;break-after:page}.report-page:last-child{page-break-after:auto;break-after:auto}` +
+      `</style></head><body>${tablesHtml}` +
       `<script>window.onload=function(){window.print();};<\/script></body></html>`;
 
     const printWindow = window.open("", "_blank");
@@ -1721,7 +1749,7 @@ function App() {
     printWindow.document.open();
     printWindow.document.write(html);
     printWindow.document.close();
-    setStatusMessage("Report opened. Use the print dialog to save as PDF.");
+    setStatusMessage("Report opened with a separate page per section. Use the print dialog to save as PDF.");
   }
 
   async function saveStock(event) {
@@ -1804,7 +1832,8 @@ function App() {
   async function tryImmediateSync(type, entry) {
     const url = getSheetUrlForType(state.settings, type);
     if (!url) {
-      setStatusMessage("Saved locally. Add the correct sheet URL in Settings for this module.");
+      updateSyncStatus(type, entry.id, "failed");
+      setStatusMessage("Saved locally. Add the correct sheet URL in Settings to sync.");
       return;
     }
 
@@ -1956,7 +1985,6 @@ function App() {
             <div className="panel-heading">
               <h2>Reports</h2>
             </div>
-            <p className="muted">Choose a date range and the pages you want, then download as Excel (CSV) or PDF.</p>
 
             <div className="toolbar-grid toolbar-grid-two">
               <label>
@@ -2009,8 +2037,7 @@ function App() {
                 <div className="graph-header">
                   <div>
                     <h3>Habit monthly horizontal bar graph</h3>
-                    <p className="muted">Bar width shows completion rate in the selected month</p>
-                  </div>
+                    </div>
                   <label className="month-picker">
                     Month
                     <input type="month" value={habitMonth} onChange={(event) => setHabitMonth(event.target.value || getCurrentMonth())} />
@@ -2097,21 +2124,29 @@ function App() {
                     <th>Name</th>
                     <th>Start</th>
                     <th>End</th>
-                    <th className="icon-col">Sync</th>
+                    <th className="icon-col">Achieved</th>
+                    <th className="row-action-head" aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleHabits.length ? visibleHabits.map((habit) => {
                     const completed = isHabitCompletedOnDate(habit, habitDate);
                     return (
-                      <SwipeRow key={habit.id} className={completed ? "completed-row" : ""} title="Tap to toggle, swipe to delete" onTap={() => toggleHabitCompletion(habit.id, !completed)} onDelete={() => deleteHabit(habit.id)}>
+                      <SelectableRow key={habit.id} className={completed ? "completed-row" : ""} title="Hold to select for delete" deleteLabel="Delete habit" onDelete={() => deleteHabit(habit.id)}>
                         <td>{habit.name || "-"}</td>
                         <td>{formatTime(habit.startTime)}</td>
                         <td>{formatTime(habit.endTime)}</td>
-                        <td>{makeSyncIcon(habit.syncStatus)}</td>
-                      </SwipeRow>
+                        <td className="icon-col">
+                          <StatusRadio
+                            checked={completed}
+                            status={habit.syncStatus}
+                            title={completed ? "Achieved — click to undo" : "Mark achieved"}
+                            onToggle={() => toggleHabitCompletion(habit.id, !completed)}
+                          />
+                        </td>
+                      </SelectableRow>
                     );
-                  }) : <tr><td colSpan="4">No habits available for this date.</td></tr>}
+                  }) : <tr><td colSpan="5">No habits available for this date.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2190,12 +2225,13 @@ function App() {
                       </button>
                     </th>
                     <th>Notes</th>
-                    <th className="icon-col">Sync</th>
+                    <th className="icon-col">Completed</th>
+                    <th className="row-action-head" aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTasks.length ? filteredTasks.map((task) => (
-                    <SwipeRow key={task.id} className={task.completed ? "completed-row" : ""} title="Tap to toggle, swipe to delete" onTap={() => toggleTaskCompletion(task.id, !task.completed)} onDelete={() => deleteTask(task.id)}>
+                    <SelectableRow key={task.id} className={task.completed ? "completed-row" : ""} title="Hold to select for delete" deleteLabel="Delete task" onDelete={() => deleteTask(task.id)}>
                       <td>{task.title || "-"}</td>
                       <td>{formatDateTime(task.completionTime)}</td>
                       <td>
@@ -2203,9 +2239,16 @@ function App() {
                           ? <button className="icon-button" type="button" aria-label="View note" title="View note" onClick={() => setNoteModalTask(task)}><NotesIcon /></button>
                           : <span className="muted">-</span>}
                       </td>
-                      <td>{makeSyncIcon(task.syncStatus)}</td>
-                    </SwipeRow>
-                  )) : <tr><td colSpan="4">No tasks found.</td></tr>}
+                      <td className="icon-col">
+                        <StatusRadio
+                          checked={task.completed}
+                          status={task.syncStatus}
+                          title={task.completed ? "Completed — click to undo" : "Mark completed"}
+                          onToggle={() => toggleTaskCompletion(task.id, !task.completed)}
+                        />
+                      </td>
+                    </SelectableRow>
+                  )) : <tr><td colSpan="5">No tasks found.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2249,7 +2292,7 @@ function App() {
             {showTradeCalendar && (
               <section className="graph-panel">
                 <div className="graph-header">
-                  <h3>PNL calendar</h3>
+                 
                   <input type="month" value={tradeMonth} onChange={(event) => setTradeMonth(event.target.value || getToday().slice(0, 7))} />
                 </div>
                 <div className="trade-calendar">
@@ -2342,7 +2385,7 @@ function App() {
 
                 <BarChart
                   title="Daily achieved P&L"
-                  subtitle="Green bars are profit days, red bars are loss days"
+                  
                   data={dailyTradesAsc.map((trade) => ({
                     label: trade.date.slice(5),
                     value: Number(trade.achieved || 0),
@@ -2402,7 +2445,7 @@ function App() {
                 <div className="graph-header portfolio-graph-header">
                   <div>
                     <h3>Portfolio pie charts</h3>
-                    <p className="muted">Switch between monthly, yearly, and all saved records.</p>
+                    
                   </div>
                   <div className="portfolio-graph-controls">
                     <label className="month-picker">
@@ -2577,7 +2620,6 @@ function App() {
               <h2>Stocks tracker</h2>
               <div className="panel-actions">
                 <button className="graph-icon-button" type="button" title="Toggle graph" onClick={() => setShowStockGraph((prev) => !prev)}><GraphIcon /></button>
-                <button className="icon-save-button" type="button" title="Sync all stocks" onClick={syncPendingEntries}><SyncIcon /></button>
                 <button className="icon-add-button" type="button" title="Add stock" onClick={() => setShowStockAdd((prev) => !prev)}><PlusIcon /></button>
               </div>
             </div>
@@ -2658,21 +2700,9 @@ function App() {
             <div className="panel-heading">
               <h2>Workout planner</h2>
               <div className="panel-actions">
-                <button className="graph-icon-button" type="button" title="Toggle graph" onClick={() => setShowWorkoutGraph((prev) => !prev)}><GraphIcon /></button>
                 <button className="icon-add-button" type="button" title="Add workout exercise" onClick={() => setShowWorkoutAdd(true)}><PlusIcon /></button>
               </div>
             </div>
-
-            {showWorkoutGraph && (
-              <section className="graph-panel">
-                <PieChart
-                  title="Workout volume pie chart"
-                  totalLabel="Training volume (weight × reps) by muscle group for the selected date"
-                  data={workoutVolumeByMuscle}
-                  emptyMessage="No workout volume data for this date yet."
-                />
-              </section>
-            )}
 
             {showWorkoutAdd && (
               <Modal title="Add workout exercise" subtitle="Pick a muscle group and add a workout. It will appear in the exercise dropdown." onClose={() => setShowWorkoutAdd(false)}>
@@ -3020,17 +3050,12 @@ function App() {
                         <td>{formatNumber(macros.fat)}</td>
                         <td>{formatNumber(macros.calories)}</td>
                         <td className="icon-col">
-                          <button
-                            type="button"
-                            className={`eaten-radio${item.eaten ? " checked" : ""}${synced ? " synced" : ""}${item.eaten && item.syncStatus === "failed" ? " failed" : ""}`}
-                            role="radio"
-                            aria-checked={item.eaten}
+                          <StatusRadio
+                            checked={item.eaten}
+                            status={item.syncStatus}
                             title={radioTitle}
-                            aria-label={radioTitle}
-                            onClick={() => togglePlanEaten(item.id)}
-                          >
-                            <span className="eaten-radio-dot" />
-                          </button>
+                            onToggle={() => togglePlanEaten(item.id)}
+                          />
                         </td>
                       </tr>
                     );
@@ -3955,6 +3980,152 @@ function makeSyncIcon(status) {
   const icon = state === "synced" ? <CheckIcon /> : state === "failed" ? <WarningIcon /> : <ClockIcon />;
   const title = state === "synced" ? "Synced to sheet" : state === "failed" ? "Sync failed" : "Pending sync";
   return <span className={`sync-icon sync-${state}`} title={title} aria-label={title}>{icon}</span>;
+}
+
+function StatusRadio({ checked, status, onToggle, title, ariaLabel }) {
+  const synced = checked && status === "synced";
+  const failed = checked && status === "failed";
+  return (
+    <button
+      type="button"
+      className={`status-radio${checked ? " checked" : ""}${synced ? " synced" : ""}${failed ? " failed" : ""}`}
+      role="radio"
+      aria-checked={checked}
+      title={title}
+      aria-label={ariaLabel || title}
+      onClick={onToggle}
+    >
+      <span className="status-radio-dot" />
+    </button>
+  );
+}
+
+function SelectableRow({ children, onDelete, className, title, deleteLabel }) {
+  const rowRef = useRef(null);
+  const [selected, setSelected] = useState(false);
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) {
+      return undefined;
+    }
+
+    const LONG_PRESS_MS = 450;
+    const MOVE_CANCEL = 10;
+    const local = { timer: null, startX: 0, startY: 0 };
+
+    function isInteractive(target) {
+      return Boolean(target && target.closest && target.closest("input, select, button, textarea, a"));
+    }
+
+    function clearTimer() {
+      if (local.timer) {
+        clearTimeout(local.timer);
+        local.timer = null;
+      }
+    }
+
+    function begin(clientX, clientY, target) {
+      if (isInteractive(target)) {
+        return;
+      }
+      local.startX = clientX;
+      local.startY = clientY;
+      clearTimer();
+      local.timer = setTimeout(() => {
+        setSelected(true);
+        if (navigator && typeof navigator.vibrate === "function") {
+          navigator.vibrate(20);
+        }
+      }, LONG_PRESS_MS);
+    }
+
+    function move(clientX, clientY) {
+      if (!local.timer) {
+        return;
+      }
+      if (Math.abs(clientX - local.startX) > MOVE_CANCEL || Math.abs(clientY - local.startY) > MOVE_CANCEL) {
+        clearTimer();
+      }
+    }
+
+    function onTouchStart(event) {
+      const touch = event.touches[0];
+      if (touch) {
+        begin(touch.clientX, touch.clientY, event.target);
+      }
+    }
+    function onTouchMove(event) {
+      const touch = event.touches[0];
+      if (touch) {
+        move(touch.clientX, touch.clientY);
+      }
+    }
+    function onMouseDown(event) {
+      if (event.button !== 0) {
+        return;
+      }
+      begin(event.clientX, event.clientY, event.target);
+    }
+    function onMouseMove(event) {
+      move(event.clientX, event.clientY);
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: true });
+    el.addEventListener("touchend", clearTimer);
+    el.addEventListener("touchcancel", clearTimer);
+    el.addEventListener("mousedown", onMouseDown);
+    el.addEventListener("mousemove", onMouseMove);
+    el.addEventListener("mouseup", clearTimer);
+    el.addEventListener("mouseleave", clearTimer);
+
+    return () => {
+      clearTimer();
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", clearTimer);
+      el.removeEventListener("touchcancel", clearTimer);
+      el.removeEventListener("mousedown", onMouseDown);
+      el.removeEventListener("mousemove", onMouseMove);
+      el.removeEventListener("mouseup", clearTimer);
+      el.removeEventListener("mouseleave", clearTimer);
+    };
+  }, []);
+
+  return (
+    <tr
+      ref={rowRef}
+      className={`selectable-row${selected ? " is-selected-row" : ""}${className ? " " + className : ""}`}
+      title={selected ? "" : (title || "Hold to select")}
+    >
+      {children}
+      <td className="row-action-cell">
+        {selected ? (
+          <span className="row-action-inner">
+            <button
+              type="button"
+              className="row-delete-btn"
+              title={deleteLabel || "Delete"}
+              aria-label={deleteLabel || "Delete"}
+              onClick={() => { setSelected(false); if (typeof onDelete === "function") { onDelete(); } }}
+            >
+              <TrashIcon />
+            </button>
+            <button
+              type="button"
+              className="row-cancel-btn"
+              title="Cancel"
+              aria-label="Cancel selection"
+              onClick={() => setSelected(false)}
+            >
+              <CloseIcon />
+            </button>
+          </span>
+        ) : null}
+      </td>
+    </tr>
+  );
 }
 
 function SwipeRow({ children, onDelete, onTap, className, title }) {

@@ -1072,8 +1072,11 @@ select {
 }
 
 .completed-row {
-  opacity: 0.58;
-  background: var(--surface-soft);
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.completed-row td {
+  font-weight: 600;
 }
 
 .selected-row {
@@ -1246,7 +1249,8 @@ select {
   font-weight: 600;
 }
 
-.eaten-radio {
+.eaten-radio,
+.status-radio {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -1260,11 +1264,13 @@ select {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.eaten-radio:hover {
+.eaten-radio:hover,
+.status-radio:hover {
   border-color: var(--accent-2, #2563eb);
 }
 
-.eaten-radio-dot {
+.eaten-radio-dot,
+.status-radio-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -1272,29 +1278,95 @@ select {
   transition: background 0.15s ease;
 }
 
-.eaten-radio.checked {
+.eaten-radio.checked,
+.status-radio.checked {
   border-color: #2563eb;
 }
 
-.eaten-radio.checked .eaten-radio-dot {
+.eaten-radio.checked .eaten-radio-dot,
+.status-radio.checked .status-radio-dot {
   background: #2563eb;
 }
 
-.eaten-radio.failed {
+.eaten-radio.failed,
+.status-radio.failed {
   border-color: #ef4444;
 }
 
-.eaten-radio.failed .eaten-radio-dot {
+.eaten-radio.failed .eaten-radio-dot,
+.status-radio.failed .status-radio-dot {
   background: #ef4444;
 }
 
-.eaten-radio.synced {
+.eaten-radio.synced,
+.status-radio.synced {
   border-color: #22c55e;
   background: rgba(34, 197, 94, 0.14);
 }
 
-.eaten-radio.synced .eaten-radio-dot {
+.eaten-radio.synced .eaten-radio-dot,
+.status-radio.synced .status-radio-dot {
   background: #22c55e;
+}
+
+.selectable-row {
+  transition: background 0.15s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.selectable-row.is-selected-row {
+  background: var(--violet-soft);
+}
+
+.row-action-head {
+  width: 78px;
+}
+
+.row-action-cell {
+  width: 78px;
+  text-align: center;
+  padding: 0.35rem 0.4rem;
+}
+
+.row-action-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.row-delete-btn,
+.row-cancel-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.row-delete-btn {
+  background: #ef4444;
+  color: #fff;
+}
+
+.row-delete-btn:hover {
+  background: #dc2626;
+}
+
+.row-cancel-btn {
+  background: var(--surface-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.row-delete-btn svg,
+.row-cancel-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .diet-plan-item-top {
