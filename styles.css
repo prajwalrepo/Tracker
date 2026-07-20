@@ -1099,6 +1099,279 @@ select {
   cursor: grabbing;
 }
 
+.diet-plan-wrap {
+  max-height: 62vh;
+  overflow: auto;
+}
+
+.diet-plan-table {
+  min-width: 640px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.diet-plan-table th,
+.diet-plan-table td {
+  border: 1px solid var(--border);
+  padding: 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.diet-plan-corner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--surface);
+  font-size: 0.72rem;
+  color: var(--muted, #666);
+  text-align: center;
+}
+
+.diet-plan-meal-head {
+  background: var(--surface-soft);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+  min-width: 120px;
+}
+
+.diet-plan-day {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  text-align: left;
+  min-width: 84px;
+  vertical-align: middle;
+}
+
+.diet-plan-day-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.diet-plan-block {
+  min-width: 120px;
+}
+
+.diet-plan-item {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 6px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.diet-plan-item:hover {
+  border-color: var(--accent-2, #2563eb);
+}
+
+.diet-plan-item.is-eaten {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: #22c55e;
+}
+
+.diet-plan-item-check {
+  display: inline-flex;
+  color: #16a34a;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+.diet-plan-item-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.diet-plan-totals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 10px 0 14px;
+}
+
+.diet-plan-total-card {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.diet-plan-total-card span {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--muted, #777);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.diet-plan-total-card strong {
+  display: block;
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+@media (max-width: 560px) {
+  .diet-plan-totals {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.diet-today-heading {
+  margin: 14px 0 6px;
+}
+
+.diet-today-heading h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.diet-today-row {
+  transition: background 0.15s ease;
+}
+
+.diet-today-row.is-eaten {
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.diet-today-row.is-eaten td {
+  font-weight: 600;
+}
+
+.eaten-radio {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.eaten-radio:hover {
+  border-color: var(--accent-2, #2563eb);
+}
+
+.eaten-radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.eaten-radio.checked {
+  border-color: #2563eb;
+}
+
+.eaten-radio.checked .eaten-radio-dot {
+  background: #2563eb;
+}
+
+.eaten-radio.failed {
+  border-color: #ef4444;
+}
+
+.eaten-radio.failed .eaten-radio-dot {
+  background: #ef4444;
+}
+
+.eaten-radio.synced {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.eaten-radio.synced .eaten-radio-dot {
+  background: #22c55e;
+}
+
+.diet-plan-item-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  padding-right: 16px;
+}
+
+.diet-plan-item-line {
+  font-size: 0.74rem;
+  line-height: 1.2;
+}
+
+.diet-plan-item-time {
+  font-weight: 700;
+  color: var(--accent-2, #2563eb);
+  font-size: 0.72rem;
+}
+
+.diet-plan-item-sep {
+  color: var(--muted, #777);
+}
+
+.diet-plan-item-food {
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.diet-plan-item-serving {
+  font-size: 0.72rem;
+  color: var(--muted, #777);
+}
+
+.diet-plan-item-prep {
+  margin-top: 3px;
+  font-size: 0.66rem;
+  color: var(--muted, #777);
+  line-height: 1.2;
+}
+
+.diet-plan-remove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.diet-plan-add-cell {
+  width: 100%;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted, #666);
+  border-radius: 8px;
+  padding: 4px 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.diet-plan-add-cell:hover {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

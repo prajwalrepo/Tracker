@@ -210,6 +210,20 @@ const REPORT_MODULES = [
   { key: "diet", label: "Diet" }
 ];
 
+const PLAN_DAYS = [
+  { key: "Mon", label: "Monday" },
+  { key: "Tue", label: "Tuesday" },
+  { key: "Wed", label: "Wednesday" },
+  { key: "Thu", label: "Thursday" },
+  { key: "Fri", label: "Friday" },
+  { key: "Sat", label: "Saturday" },
+  { key: "Sun", label: "Sunday" }
+];
+
+const PLAN_MEALS = ["Breakfast", "Mid-Morning", "Lunch", "Snack", "Dinner"];
+
+const DEFAULT_DIET_PLAN = [];
+
 const defaultState = {
   settings: {
     habitsTasksSheetUrl: "",
@@ -229,7 +243,8 @@ const defaultState = {
   diets: [],
   dietTargets: [],
   customWorkouts: [],
-  customFoods: []
+  customFoods: [],
+  dietPlan: DEFAULT_DIET_PLAN
 };
 
 function App() {
@@ -270,6 +285,8 @@ function App() {
   const [showWorkoutGraph, setShowWorkoutGraph] = useState(false);
   const [showDietGraph, setShowDietGraph] = useState(false);
   const [showDietTargetForm, setShowDietTargetForm] = useState(false);
+  const [showDietPlan, setShowDietPlan] = useState(false);
+  const [dietPlanForm, setDietPlanForm] = useState({ day: "Mon", meal: "Breakfast", time: "08:00", foodName: DIET_FOODS[0] ? DIET_FOODS[0].name : "", inputMode: "serving", quantity: "1", prep: "" });
 
   const [workoutLibraryData, setWorkoutLibraryData] = useState(WORKOUT_LIBRARY);
   const [dietFoodOptions, setDietFoodOptions] = useState(DIET_FOODS);
@@ -536,6 +553,66 @@ function App() {
   const workoutOptions = useMemo(() => getWorkoutOptions(mergedWorkoutLibrary, workoutMuscle), [mergedWorkoutLibrary, workoutMuscle]);
   const workoutEntries = useMemo(() => state.workouts.filter((entry) => !entry.deleted && belongsToActiveUser(entry) && entry.date === workoutDate).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")), [state.workouts, workoutDate, activeUserEmail]);
   const dietEntries = useMemo(() => state.diets.filter((entry) => !entry.deleted && belongsToActiveUser(entry) && entry.date === dietDate).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")), [state.diets, dietDate, activeUserEmail]);
+
+  const dietPlanGrid = useMemo(() => {
+    const map = {};
+    (Array.isArray(state.dietPlan) ? state.dietPlan : []).forEach((item) => {
+      const key = `${item.day}::${item.meal}`;
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(item);
+    });
+    Object.values(map).forEach((list) => list.sort((a, b) => String(a.time || "").localeCompare(String(b.time || ""))));
+    return map;
+  }, [state.dietPlan]);
+  const dietPlanTotals = useMemo(() => {
+    const plan = Array.isArray(state.dietPlan) ? state.dietPlan : [];
+    const empty = () => ({ protein: 0, carbs: 0, fat: 0, calories: 0 });
+    const target = empty();
+    const eaten = empty();
+    plan.forEach((item) => {
+      const macros = computePlanMacros(item, mergedFoodOptions);
+      target.protein += macros.protein;
+      target.carbs += macros.carbs;
+      target.fat += macros.fat;
+      target.calories += macros.calories;
+      if (item.eaten) {
+        eaten.protein += macros.protein;
+        eaten.carbs += macros.carbs;
+        eaten.fat += macros.fat;
+        eaten.calories += macros.calories;
+      }
+    });
+    return { target, eaten };
+  }, [state.dietPlan, mergedFoodOptions]);
+  const todayDayKey = getTodayDayKey();
+  const todayDayLabel = (PLAN_DAYS.find((d) => d.key === todayDayKey) || {}).label || todayDayKey;
+  const todayPlanItems = useMemo(() => {
+    const plan = Array.isArray(state.dietPlan) ? state.dietPlan : [];
+    return plan
+      .filter((item) => item.day === todayDayKey)
+      .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+  }, [state.dietPlan, todayDayKey]);
+  const dietTodayTotals = useMemo(() => {
+    const empty = () => ({ protein: 0, carbs: 0, fat: 0, calories: 0 });
+    const target = empty();
+    const eaten = empty();
+    todayPlanItems.forEach((item) => {
+      const macros = computePlanMacros(item, mergedFoodOptions);
+      target.protein += macros.protein;
+      target.carbs += macros.carbs;
+      target.fat += macros.fat;
+      target.calories += macros.calories;
+      if (item.eaten) {
+        eaten.protein += macros.protein;
+        eaten.carbs += macros.carbs;
+        eaten.fat += macros.fat;
+        eaten.calories += macros.calories;
+      }
+    });
+    return { target, eaten };
+  }, [todayPlanItems, mergedFoodOptions]);
   const dietTargetEntry = useMemo(() => state.dietTargets.find((entry) => !entry.deleted && belongsToActiveUser(entry) && entry.date === dietDate) || null, [state.dietTargets, dietDate, activeUserEmail]);
 
   const graphScopeValue = portfolioGraphRange === "monthly" ? portfolioGraphMonth : `${portfolioGraphYear}-01`;
@@ -622,16 +699,11 @@ function App() {
     return [...totals.entries()].map(([label, value], index) => ({ label, value, color: PIE_COLORS[index % PIE_COLORS.length] })).sort((a, b) => b.value - a.value);
   }, [workoutEntries]);
 
-  const dietDayTotals = useMemo(() => dietEntries.reduce((sum, item) => ({
-    protein: sum.protein + Number(item.protein || 0),
-    carbs: sum.carbs + Number(item.carbs || 0),
-    fat: sum.fat + Number(item.fat || 0),
-    calories: sum.calories + Number(item.calories || 0)
-  }), { protein: 0, carbs: 0, fat: 0, calories: 0 }), [dietEntries]);
-  const dietTargetCalories = dietTargetEntry ? Number(dietTargetEntry.targetCalories || 0) : 0;
-  const dietTargetProtein = dietTargetEntry ? Number(dietTargetEntry.targetProtein || 0) : 0;
-  const dietTargetCarbs = dietTargetEntry ? Number(dietTargetEntry.targetCarbs || 0) : 0;
-  const dietTargetFat = dietTargetEntry ? Number(dietTargetEntry.targetFat || 0) : 0;
+  const dietDayTotals = dietTodayTotals.eaten;
+  const dietTargetCalories = Number(dietTodayTotals.target.calories || 0);
+  const dietTargetProtein = Number(dietTodayTotals.target.protein || 0);
+  const dietTargetCarbs = Number(dietTodayTotals.target.carbs || 0);
+  const dietTargetFat = Number(dietTodayTotals.target.fat || 0);
   const dietConsumedCalories = Number(dietDayTotals.calories || 0);
 
   const dietDayChart = useMemo(() => {
@@ -1049,6 +1121,131 @@ function App() {
     if (updated) {
       await tryImmediateSync("diet", updated);
     }
+  }
+
+  function addPlanSlot(event) {
+    if (event && event.preventDefault) {
+      event.preventDefault();
+    }
+    const foodName = String(dietPlanForm.foodName || "").trim();
+    if (!foodName) {
+      setStatusMessage("Pick a food for the plan.");
+      return;
+    }
+    const matchedFood = mergedFoodOptions.find((food) => food.name.toLowerCase() === foodName.toLowerCase());
+    if (!matchedFood) {
+      setStatusMessage(`"${foodName}" is not in the food list. Pick one from the dropdown or add it with the + button.`);
+      return;
+    }
+    const quantity = Number(dietPlanForm.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setStatusMessage("Enter a valid quantity.");
+      return;
+    }
+    const day = PLAN_DAYS.some((d) => d.key === dietPlanForm.day) ? dietPlanForm.day : "Mon";
+    const meal = PLAN_MEALS.includes(dietPlanForm.meal) ? dietPlanForm.meal : PLAN_MEALS[0];
+    const macros = computePlanMacros(
+      { foodName: matchedFood.name, inputMode: dietPlanForm.inputMode === "weight" ? "weight" : "serving", quantity },
+      mergedFoodOptions
+    );
+    const slot = {
+      id: makeId(),
+      day,
+      meal,
+      time: String(dietPlanForm.time || "").trim(),
+      foodName: matchedFood.name,
+      inputMode: dietPlanForm.inputMode === "weight" ? "weight" : "serving",
+      quantity,
+      protein: macros.protein,
+      carbs: macros.carbs,
+      fat: macros.fat,
+      calories: macros.calories,
+      prep: String(dietPlanForm.prep || "").trim(),
+      eaten: false
+    };
+    setState((prev) => {
+      const plan = Array.isArray(prev.dietPlan) ? prev.dietPlan : [];
+      return { ...prev, dietPlan: [...plan, slot] };
+    });
+    setDietPlanForm((prev) => ({ ...prev, prep: "" }));
+    setStatusMessage(`Added ${matchedFood.name} to ${meal} on ${day}.`);
+  }
+
+  function openPlanCell(day, meal) {
+    setDietPlanForm((prev) => ({ ...prev, day, meal }));
+    const input = document.getElementById("diet-plan-food-input");
+    if (input) {
+      input.focus();
+    }
+  }
+
+  function updatePlanSyncStatus(slotId, syncStatus) {
+    setState((prev) => ({
+      ...prev,
+      dietPlan: (Array.isArray(prev.dietPlan) ? prev.dietPlan : []).map((slot) =>
+        slot.id === slotId ? { ...slot, syncStatus } : slot
+      )
+    }));
+  }
+
+  async function togglePlanEaten(slotId) {
+    const plan = Array.isArray(state.dietPlan) ? state.dietPlan : [];
+    const current = plan.find((slot) => slot.id === slotId);
+    if (!current) {
+      return;
+    }
+    const nowEaten = !current.eaten;
+
+    setState((prev) => ({
+      ...prev,
+      dietPlan: (Array.isArray(prev.dietPlan) ? prev.dietPlan : []).map((slot) =>
+        slot.id === slotId
+          ? { ...slot, eaten: nowEaten, syncStatus: nowEaten ? "pending" : "" }
+          : slot
+      )
+    }));
+
+    if (!nowEaten) {
+      return;
+    }
+
+    const macros = computePlanMacros(current, mergedFoodOptions);
+    const url = getSheetUrlForType(state.settings, "diet");
+    if (!url) {
+      updatePlanSyncStatus(slotId, "failed");
+      setStatusMessage("Marked eaten. Add the Workout + Diet sheet URL in Settings to sync.");
+      return;
+    }
+
+    const payload = {
+      id: current.id,
+      date: getToday(),
+      day: current.day,
+      meal: current.meal,
+      time: current.time,
+      foodName: current.foodName,
+      serving: planServingLabel(current),
+      inputMode: current.inputMode,
+      quantity: current.quantity,
+      protein: macros.protein,
+      carbs: macros.carbs,
+      fat: macros.fat,
+      calories: macros.calories,
+      ownerEmail: activeUserEmail,
+      deleted: false,
+      createdAt: new Date().toISOString()
+    };
+
+    const result = await pushEntry("diet", payload, url);
+    updatePlanSyncStatus(slotId, result.ok ? "synced" : "failed");
+    setStatusMessage(result.ok ? "Marked eaten and synced." : `Marked eaten. Sync failed. ${result.error || ""}`.trim());
+  }
+
+  function removePlanSlot(slotId) {
+    setState((prev) => ({
+      ...prev,
+      dietPlan: (Array.isArray(prev.dietPlan) ? prev.dietPlan : []).filter((slot) => slot.id !== slotId)
+    }));
   }
 
   async function saveDietTarget() {
@@ -2559,17 +2756,17 @@ function App() {
             <div className="panel-heading">
               <h2>Diet calculator</h2>
               <div className="panel-actions">
-                <button className="graph-icon-button" type="button" title="Set today target" onClick={openDietTargetForm}><TargetIcon /></button>
+                <button className="graph-icon-button" type="button" title="Weekly diet plan" onClick={() => setShowDietPlan(true)}><MealPlanIcon /></button>
                 <button className="graph-icon-button" type="button" title="Toggle graph" onClick={() => setShowDietGraph((prev) => !prev)}><GraphIcon /></button>
-                <button className="icon-add-button" type="button" title="Add food" onClick={() => setShowFoodAdd(true)}><PlusIcon /></button>
+                <button className="icon-add-button" type="button" title="Add food to list" onClick={() => setShowFoodAdd(true)}><PlusIcon /></button>
               </div>
             </div>
 
             {showDietGraph && (
               <section className="graph-panel">
                 <div className="graph-header">
-                  <h3>Diet target vs consumed</h3>
-                  <p className="muted">Blue = target · Red = consumed. Each metric scaled independently.</p>
+                  <h3>Today's diet ({todayDayLabel})</h3>
+                  <p className="muted">Blue = today's planned target · Red = eaten so far. Auto-calculated from the weekly plan.</p>
                 </div>
                 <div className="line-chart-wrap">
                   <svg viewBox={`0 0 ${dietDayChart.width} ${dietDayChart.height}`} className="line-chart" role="img" aria-label="Diet macros target versus consumed chart">
@@ -2601,67 +2798,24 @@ function App() {
                 </div>
 
                 <BarChart
-                  title="Consumed macros"
-                  subtitle="Protein, carbs and fat consumed today (grams)"
+                  title="Eaten macros"
+                  subtitle="Protein, carbs and fat from meals marked eaten (grams)"
                   data={[
                     { label: "Protein", value: dietDayTotals.protein, color: "var(--accent-1)" },
                     { label: "Carbs", value: dietDayTotals.carbs, color: "var(--accent-2)" },
                     { label: "Fat", value: dietDayTotals.fat, color: "var(--accent-3)" }
                   ]}
-                  emptyMessage="No food logged for this date yet."
+                  emptyMessage="No meals marked eaten yet."
                 />
               </section>
             )}
 
             <div className="summary-grid report-grid compact-row">
-              <article className="summary-card"><span>Protein (g)</span><strong>{formatNumber(dietDayTotals.protein)}</strong>{dietTargetProtein > 0 && <small className="muted">Target: {formatNumber(dietTargetProtein)}</small>}</article>
-              <article className="summary-card"><span>Carbs (g)</span><strong>{formatNumber(dietDayTotals.carbs)}</strong>{dietTargetCarbs > 0 && <small className="muted">Target: {formatNumber(dietTargetCarbs)}</small>}</article>
-              <article className="summary-card"><span>Fat (g)</span><strong>{formatNumber(dietDayTotals.fat)}</strong>{dietTargetFat > 0 && <small className="muted">Target: {formatNumber(dietTargetFat)}</small>}</article>
-              <article className="summary-card stock-total-card"><span>Calories</span><strong>{formatNumber(dietDayTotals.calories)}</strong>{dietTargetCalories > 0 && <small className="muted">Target: {formatNumber(dietTargetCalories)}</small>}</article>
+              <article className="summary-card"><span>Protein (g)</span><strong>{formatNumber(dietDayTotals.protein)} / {formatNumber(dietTargetProtein)}</strong><small className="muted">eaten / target</small></article>
+              <article className="summary-card"><span>Carbs (g)</span><strong>{formatNumber(dietDayTotals.carbs)} / {formatNumber(dietTargetCarbs)}</strong><small className="muted">eaten / target</small></article>
+              <article className="summary-card"><span>Fat (g)</span><strong>{formatNumber(dietDayTotals.fat)} / {formatNumber(dietTargetFat)}</strong><small className="muted">eaten / target</small></article>
+              <article className="summary-card stock-total-card"><span>Calories</span><strong>{formatNumber(dietDayTotals.calories)} / {formatNumber(dietTargetCalories)}</strong><small className="muted">eaten / target</small></article>
             </div>
-
-            <div className="field-grid three-up compact-row">
-              <label>
-                Diet date
-                <input type="date" value={dietDate} onChange={(event) => setDietDate(event.target.value || getToday())} />
-              </label>
-            </div>
-            {showDietTargetForm && (
-              <div className="diet-target-overlay" onClick={closeDietTargetForm} role="presentation">
-                <section className="diet-target-modal" role="dialog" aria-modal="true" aria-label="Set diet targets" onClick={(event) => event.stopPropagation()}>
-                  <div className="diet-target-modal-header">
-                    <div>
-                      <h3>Set daily target</h3>
-                      <p className="muted">Enter target calories and macro grams for the selected day.</p>
-                    </div>
-                    <button className="close-icon-button" type="button" aria-label="Close target form" onClick={closeDietTargetForm}><CloseIcon /></button>
-                  </div>
-                  <div className="field-grid four-up compact-row">
-                    <label>
-                      Target calories
-                      <input id="diet-target-calories-input" type="number" step="1" value={dietTargetCaloriesInput} onChange={(event) => setDietTargetCaloriesInput(event.target.value)} placeholder="kcal" />
-                    </label>
-                    <label>
-                      Target protein (g)
-                      <input type="number" step="0.1" value={dietTargetProteinInput} onChange={(event) => setDietTargetProteinInput(event.target.value)} placeholder="g" />
-                    </label>
-                    <label>
-                      Target carbs (g)
-                      <input type="number" step="0.1" value={dietTargetCarbsInput} onChange={(event) => setDietTargetCarbsInput(event.target.value)} placeholder="g" />
-                    </label>
-                    <label>
-                      Target fat (g)
-                      <input type="number" step="0.1" value={dietTargetFatInput} onChange={(event) => setDietTargetFatInput(event.target.value)} placeholder="g" />
-                    </label>
-                  </div>
-                  <div className="panel-actions compact-row diet-target-actions">
-                    <button className="icon-save-button" type="button" title="Save target" aria-label="Save target" onClick={saveDietTarget}><SaveIcon /></button>
-                    <button className="button button-secondary" type="button" onClick={deleteDietTarget} disabled={!dietTargetEntry}>Delete target</button>
-                    <button className="button button-secondary" type="button" onClick={closeDietTargetForm}>Close</button>
-                  </div>
-                </section>
-              </div>
-            )}
 
             {showFoodAdd && (
               <Modal title="Add food" subtitle="Pick how it's measured, enter macros, and calories are auto-calculated." onClose={() => setShowFoodAdd(false)}>
@@ -2699,72 +2853,188 @@ function App() {
               </Modal>
             )}
 
-            <div className="field-grid three-up compact-row">
-              <label>
-                Food
-                <select value={dietFoodName} onChange={(event) => setDietFoodName(event.target.value)}>
-                  {mergedFoodOptions.map((food) => <option key={food.name} value={food.name}>{food.name} ({food.serving})</option>)}
-                </select>
-              </label>
-            </div>
+            {showDietPlan && (
+              <Modal
+                title="Weekly diet plan"
+                subtitle="Build your weekly meals. Tap a meal to mark it eaten (turns green) — only eaten meals count as consumed, and the whole plan is your target."
+                onClose={() => setShowDietPlan(false)}
+              >
+                <form className="inline-add-form diet-plan-form" onSubmit={addPlanSlot}>
+                  <div className="field-grid three-up">
+                    <label>
+                      Day
+                      <select value={dietPlanForm.day} onChange={(event) => setDietPlanForm((prev) => ({ ...prev, day: event.target.value }))}>
+                        {PLAN_DAYS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Meal block
+                      <select value={dietPlanForm.meal} onChange={(event) => setDietPlanForm((prev) => ({ ...prev, meal: event.target.value }))}>
+                        {PLAN_MEALS.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Time
+                      <input type="time" value={dietPlanForm.time} onChange={(event) => setDietPlanForm((prev) => ({ ...prev, time: event.target.value }))} />
+                    </label>
+                  </div>
+                  <div className="field-grid three-up">
+                    <label>
+                      Food
+                      <select
+                        id="diet-plan-food-input"
+                        value={dietPlanForm.foodName}
+                        onChange={(event) => setDietPlanForm((prev) => ({ ...prev, foodName: event.target.value }))}
+                      >
+                        {mergedFoodOptions.map((food) => <option key={food.name} value={food.name}>{food.name} ({food.serving})</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Measured by
+                      <select value={dietPlanForm.inputMode} onChange={(event) => setDietPlanForm((prev) => ({ ...prev, inputMode: event.target.value, quantity: event.target.value === "weight" ? "100" : "1" }))}>
+                        <option value="serving">Servings</option>
+                        <option value="weight">Weight (g)</option>
+                      </select>
+                    </label>
+                    <label>
+                      {dietPlanForm.inputMode === "weight" ? "Weight (g)" : "Servings"}
+                      <input type="number" step="0.1" value={dietPlanForm.quantity} onChange={(event) => setDietPlanForm((prev) => ({ ...prev, quantity: event.target.value }))} placeholder={dietPlanForm.inputMode === "weight" ? "g" : "servings"} />
+                    </label>
+                  </div>
+                  <div className="field-grid">
+                    <label>
+                      Prep notes
+                      <input value={dietPlanForm.prep} onChange={(event) => setDietPlanForm((prev) => ({ ...prev, prep: event.target.value }))} placeholder="How to prepare (optional)" />
+                    </label>
+                  </div>
+                  <div className="panel-actions">
+                    <button className="icon-add-button" type="submit" title="Add meal to plan" aria-label="Add meal to plan"><PlusIcon /></button>
+                  </div>
+                </form>
 
-            <div className="panel-actions compact-row diet-input-toggle">
-              <button className="button button-secondary" type="button" onClick={() => {
-                setDietInputMode((prev) => {
-                  const next = prev === "serving" ? "weight" : "serving";
-                  if (next === "weight") {
-                    setDietServingQty("");
-                  } else {
-                    setDietWeightQty("");
-                    if (!dietServingQty) {
-                      setDietServingQty("1");
-                    }
-                  }
-                  return next;
-                });
-              }}>
-                Mode: {dietInputMode === "serving" ? "Quantity" : "Weight"}
-              </button>
-            </div>
+                <div className="diet-plan-totals">
+                  <article className="diet-plan-total-card"><span>Eaten / Target kcal</span><strong>{formatNumber(dietPlanTotals.eaten.calories)} / {formatNumber(dietPlanTotals.target.calories)}</strong></article>
+                  <article className="diet-plan-total-card"><span>Protein (g)</span><strong>{formatNumber(dietPlanTotals.eaten.protein)} / {formatNumber(dietPlanTotals.target.protein)}</strong></article>
+                  <article className="diet-plan-total-card"><span>Carbs (g)</span><strong>{formatNumber(dietPlanTotals.eaten.carbs)} / {formatNumber(dietPlanTotals.target.carbs)}</strong></article>
+                  <article className="diet-plan-total-card"><span>Fat (g)</span><strong>{formatNumber(dietPlanTotals.eaten.fat)} / {formatNumber(dietPlanTotals.target.fat)}</strong></article>
+                </div>
 
-            <div className="field-grid compact-row">
-              <label>
-                {dietInputMode === "weight" ? "Weight (g)" : "Quantity (servings)"}
-                {dietInputMode === "weight" ? (
-                  <input type="number" step="1" value={dietWeightQty} onChange={(event) => setDietWeightQty(event.target.value)} placeholder="grams" />
-                ) : (
-                  <input type="number" step="0.1" value={dietServingQty} onChange={(event) => setDietServingQty(event.target.value)} placeholder="servings" />
-                )}
-              </label>
-            </div>
+                <div className="table-wrap diet-plan-wrap">
+                  <table className="diet-plan-table">
+                    <thead>
+                      <tr>
+                        <th className="diet-plan-corner">Day \ Meal</th>
+                        {PLAN_MEALS.map((meal) => (
+                          <th key={meal} className="diet-plan-meal-head">{meal}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {PLAN_DAYS.map((d) => (
+                        <tr key={d.key}>
+                          <th scope="row" className="diet-plan-day">
+                            <span className="diet-plan-day-name">{d.label}</span>
+                          </th>
+                          {PLAN_MEALS.map((meal) => {
+                            const items = dietPlanGrid[`${d.key}::${meal}`] || [];
+                            return (
+                              <td key={meal} className="diet-plan-block">
+                                {items.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className={`diet-plan-item${item.eaten ? " is-eaten" : ""}`}
+                                    role="button"
+                                    tabIndex={0}
+                                    title={item.eaten ? "Eaten — tap to undo" : "Tap to mark eaten"}
+                                    onClick={() => togglePlanEaten(item.id)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        togglePlanEaten(item.id);
+                                      }
+                                    }}
+                                  >
+                                    <div className="diet-plan-item-top">
+                                      <span className="diet-plan-item-line">
+                                        {item.eaten ? <span className="diet-plan-item-check"><CheckIcon /></span> : null}
+                                        {item.time ? <span className="diet-plan-item-time">{formatPlanTime(item.time)}</span> : null}
+                                        {item.time ? <span className="diet-plan-item-sep"> · </span> : null}
+                                        <span className="diet-plan-item-food">{item.foodName}</span>
+                                        <span className="diet-plan-item-serving"> - {planServingLabel(item)}</span>
+                                      </span>
+                                      <button type="button" className="diet-plan-remove" title="Remove meal" aria-label="Remove meal" onClick={(event) => { event.stopPropagation(); removePlanSlot(item.id); }}>×</button>
+                                    </div>
+                                    {item.prep ? <div className="diet-plan-item-prep">{item.prep}</div> : null}
+                                  </div>
+                                ))}
+                                <button type="button" className="diet-plan-add-cell" title={`Add to ${meal} on ${d.label}`} aria-label={`Add to ${meal} on ${d.label}`} onClick={() => openPlanCell(d.key, meal)}>+ Add</button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Modal>
+            )}
 
-            <div className="panel-actions compact-row">
-              <button className="button" type="button" onClick={addDietEntry}>Add food</button>
+            <div className="diet-today-heading">
+              <h3>Today's meals — {todayDayLabel}</h3>
+              <p className="muted">Select the button to mark a meal eaten. It counts toward today's totals and syncs to your sheet — the button turns green once synced.</p>
             </div>
 
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th>Time</th>
                     <th>Food</th>
                     <th>Protein</th>
                     <th>Carbs</th>
                     <th>Fat</th>
                     <th>Calories</th>
-                    <th className="icon-col">Sync</th>
+                    <th className="icon-col">Eaten</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dietEntries.length ? dietEntries.map((entry) => (
-                    <SwipeRow key={entry.id} title="Swipe to delete" onDelete={() => deleteDietEntry(entry.id)}>
-                      <td>{entry.foodName}</td>
-                      <td>{formatNumber(entry.protein)}</td>
-                      <td>{formatNumber(entry.carbs)}</td>
-                      <td>{formatNumber(entry.fat)}</td>
-                      <td>{formatNumber(entry.calories)}</td>
-                      <td>{makeSyncIcon(entry.syncStatus)}</td>
-                    </SwipeRow>
-                  )) : <tr><td colSpan="6">No food added for this date.</td></tr>}
+                  {todayPlanItems.length ? todayPlanItems.map((item) => {
+                    const macros = computePlanMacros(item, mergedFoodOptions);
+                    const synced = item.eaten && item.syncStatus === "synced";
+                    const radioTitle = !item.eaten
+                      ? "Mark eaten"
+                      : synced
+                        ? "Eaten & synced — click to undo"
+                        : item.syncStatus === "failed"
+                          ? "Eaten (sync failed) — click to undo"
+                          : "Eaten (syncing…) — click to undo";
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`diet-today-row${item.eaten ? " is-eaten" : ""}${synced ? " is-synced" : ""}`}
+                      >
+                        <td>{item.time ? formatPlanTime(item.time) : "-"}</td>
+                        <td>{item.foodName} <small className="muted">({planServingLabel(item)})</small></td>
+                        <td>{formatNumber(macros.protein)}</td>
+                        <td>{formatNumber(macros.carbs)}</td>
+                        <td>{formatNumber(macros.fat)}</td>
+                        <td>{formatNumber(macros.calories)}</td>
+                        <td className="icon-col">
+                          <button
+                            type="button"
+                            className={`eaten-radio${item.eaten ? " checked" : ""}${synced ? " synced" : ""}${item.eaten && item.syncStatus === "failed" ? " failed" : ""}`}
+                            role="radio"
+                            aria-checked={item.eaten}
+                            title={radioTitle}
+                            aria-label={radioTitle}
+                            onClick={() => togglePlanEaten(item.id)}
+                          >
+                            <span className="eaten-radio-dot" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }) : <tr><td colSpan="7">No meals planned for {todayDayLabel}. Open the weekly plan to add some.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2819,7 +3089,8 @@ function loadState() {
       diets: Array.isArray(parsed.diets) ? parsed.diets.map(normalizeDiet) : [],
       dietTargets: Array.isArray(parsed.dietTargets) ? parsed.dietTargets.map(normalizeDietTarget) : [],
       customWorkouts: Array.isArray(parsed.customWorkouts) ? parsed.customWorkouts.map(normalizeCustomWorkout).filter(Boolean) : [],
-      customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods.map(normalizeCustomFood).filter(Boolean) : []
+      customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods.map(normalizeCustomFood).filter(Boolean) : [],
+      dietPlan: Array.isArray(parsed.dietPlan) ? parsed.dietPlan.map(normalizeDietPlanSlot).filter(Boolean) : structuredClone(DEFAULT_DIET_PLAN)
     };
   } catch {
     return structuredClone(defaultState);
@@ -3000,6 +3271,42 @@ function normalizeCustomFood(entry) {
     carbs: Number(entry.carbs || 0),
     fat: Number(entry.fat || 0),
     calories: Number(entry.calories || 0)
+  };
+}
+
+function normalizeDietPlanSlot(entry) {
+  if (!entry) {
+    return null;
+  }
+  const foodName = String(entry.foodName || "").trim();
+  if (!foodName) {
+    return null;
+  }
+  if (!entry.day && !entry.meal) {
+    return null;
+  }
+  const day = PLAN_DAYS.some((d) => d.key === entry.day) ? entry.day : "Mon";
+  const meal = PLAN_MEALS.includes(entry.meal) ? entry.meal : PLAN_MEALS[0];
+  const quantity = Number(entry.quantity);
+  const num = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  };
+  return {
+    id: entry.id || makeId(),
+    day,
+    meal,
+    time: String(entry.time || "").trim(),
+    foodName,
+    inputMode: entry.inputMode === "weight" ? "weight" : "serving",
+    quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+    protein: num(entry.protein),
+    carbs: num(entry.carbs),
+    fat: num(entry.fat),
+    calories: num(entry.calories),
+    prep: String(entry.prep || "").trim(),
+    eaten: Boolean(entry.eaten),
+    syncStatus: entry.eaten ? (entry.syncStatus || "") : ""
   };
 }
 
@@ -3510,6 +3817,103 @@ function shiftDate(dateValue, delta) {
   return `${year}-${month}-${day}`;
 }
 
+function getWeekDays(dateValue) {
+  const base = new Date(`${String(dateValue || "").slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(base.getTime())) {
+    return [];
+  }
+  const diffToMonday = (base.getDay() + 6) % 7;
+  const monday = new Date(base);
+  monday.setDate(base.getDate() - diffToMonday);
+  const days = [];
+  for (let i = 0; i < 7; i += 1) {
+    const current = new Date(monday);
+    current.setDate(monday.getDate() + i);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    const day = String(current.getDate()).padStart(2, "0");
+    days.push(`${year}-${month}-${day}`);
+  }
+  return days;
+}
+
+function weekdayLabel(dateValue) {
+  const parsed = new Date(`${String(dateValue || "").slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("en-IN", { weekday: "short" }).format(parsed);
+}
+
+function formatPlanTime(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return text;
+  }
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = hour >= 12 ? "pm" : "am";
+  hour = hour % 12;
+  if (hour === 0) {
+    hour = 12;
+  }
+  return minute === 0 ? `${hour} ${period}` : `${hour}:${match[2]} ${period}`;
+}
+
+function planServingLabel(item) {
+  const qty = Number(item.quantity) || 0;
+  return item.inputMode === "weight" ? `${qty}g` : `${qty}`;
+}
+
+function getTodayDayKey() {
+  const map = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
+  return map[new Date().getDay()] || "Mon";
+}
+
+function computePlanMacros(item, foodOptions) {
+  const empty = { protein: 0, carbs: 0, fat: 0, calories: 0 };
+  if (!item) {
+    return empty;
+  }
+  const stored = {
+    protein: Number(item.protein),
+    carbs: Number(item.carbs),
+    fat: Number(item.fat),
+    calories: Number(item.calories)
+  };
+  const hasStored = [stored.protein, stored.carbs, stored.fat, stored.calories]
+    .some((value) => Number.isFinite(value) && value > 0);
+  if (hasStored) {
+    return {
+      protein: Number.isFinite(stored.protein) ? stored.protein : 0,
+      carbs: Number.isFinite(stored.carbs) ? stored.carbs : 0,
+      fat: Number.isFinite(stored.fat) ? stored.fat : 0,
+      calories: Number.isFinite(stored.calories) ? stored.calories : 0
+    };
+  }
+  const food = (foodOptions || []).find((option) => option.name === item.foodName);
+  if (!food) {
+    return empty;
+  }
+  const qty = Number(item.quantity) || 0;
+  if (qty <= 0) {
+    return empty;
+  }
+  const multiplier = item.inputMode === "weight"
+    ? (food.baseGrams ? qty / food.baseGrams : qty / 100)
+    : qty;
+  if (!Number.isFinite(multiplier) || multiplier <= 0) {
+    return empty;
+  }
+  return {
+    protein: Number(food.protein || 0) * multiplier,
+    carbs: Number(food.carbs || 0) * multiplier,
+    fat: Number(food.fat || 0) * multiplier,
+    calories: Number(food.calories || 0) * multiplier
+  };
+}
+
 function csvEscapeRow(values) {
   return values.map((value) => {
     const text = value === null || value === undefined ? "" : String(value);
@@ -3554,55 +3958,136 @@ function makeSyncIcon(status) {
 }
 
 function SwipeRow({ children, onDelete, onTap, className, title }) {
+  const rowRef = useRef(null);
   const [offset, setOffset] = useState(0);
-  const startXRef = useRef(null);
-  const movedRef = useRef(false);
-  const offsetRef = useRef(0);
-  const THRESHOLD = 120;
+  const [swiping, setSwiping] = useState(false);
 
-  function begin(event) {
-    if (event.target.closest("input, select, button, textarea, a")) {
-      return;
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) {
+      return undefined;
     }
-    startXRef.current = event.clientX;
-    movedRef.current = false;
-    if (event.currentTarget.setPointerCapture) {
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId);
-      } catch (error) {
-        // Pointer capture is best-effort; ignore failures.
+
+    const THRESHOLD = 80;
+    const state = { active: false, startX: 0, startY: 0, dx: 0, horizontal: false, moved: false };
+
+    function isInteractive(target) {
+      return Boolean(target && target.closest && target.closest("input, select, button, textarea, a"));
+    }
+
+    function start(clientX, clientY, target) {
+      if (isInteractive(target)) {
+        state.active = false;
+        return;
+      }
+      state.active = true;
+      state.startX = clientX;
+      state.startY = clientY;
+      state.dx = 0;
+      state.horizontal = false;
+      state.moved = false;
+    }
+
+    function drag(clientX, clientY, event) {
+      if (!state.active) {
+        return;
+      }
+      const dx = clientX - state.startX;
+      const dy = clientY - state.startY;
+      if (!state.horizontal) {
+        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+          // Vertical intent wins: let the page/table scroll and abandon the swipe.
+          state.active = false;
+          state.dx = 0;
+          setSwiping(false);
+          setOffset(0);
+          return;
+        }
+        if (Math.abs(dx) > 6) {
+          state.horizontal = true;
+          setSwiping(true);
+        }
+      }
+      if (state.horizontal) {
+        state.moved = true;
+        state.dx = dx;
+        // Prevent the parent table's horizontal scroll from stealing the gesture.
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+        setOffset(dx);
       }
     }
-  }
 
-  function move(event) {
-    if (startXRef.current === null) {
-      return;
+    function finish(target) {
+      if (!state.active) {
+        return;
+      }
+      state.active = false;
+      const finalOffset = state.dx;
+      state.dx = 0;
+      setSwiping(false);
+      setOffset(0);
+      if (Math.abs(finalOffset) > THRESHOLD && typeof onDelete === "function") {
+        onDelete();
+        return;
+      }
+      if (!state.moved && typeof onTap === "function" && !isInteractive(target)) {
+        onTap();
+      }
     }
-    const delta = event.clientX - startXRef.current;
-    if (Math.abs(delta) > 6) {
-      movedRef.current = true;
-    }
-    offsetRef.current = delta;
-    setOffset(delta);
-  }
 
-  function end(event) {
-    if (startXRef.current === null) {
-      return;
+    function onTouchStart(event) {
+      const touch = event.touches[0];
+      if (touch) {
+        start(touch.clientX, touch.clientY, event.target);
+      }
     }
-    startXRef.current = null;
-    const finalOffset = offsetRef.current;
-    offsetRef.current = 0;
-    setOffset(0);
-    if (Math.abs(finalOffset) > THRESHOLD) {
-      onDelete();
-      return;
+    function onTouchMove(event) {
+      const touch = event.touches[0];
+      if (touch) {
+        drag(touch.clientX, touch.clientY, event);
+      }
     }
-    if (!movedRef.current && onTap && !(event.target.closest && event.target.closest("input, select, button, textarea, a"))) {
-      onTap();
+    function onTouchEnd(event) {
+      finish(event.target);
     }
-  }
+
+    function onMouseMove(event) {
+      drag(event.clientX, event.clientY, event);
+    }
+    function onMouseUp(event) {
+      finish(event.target);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    }
+    function onMouseDown(event) {
+      if (event.button !== 0) {
+        return;
+      }
+      start(event.clientX, event.clientY, event.target);
+      if (state.active) {
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+      }
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    el.addEventListener("mousedown", onMouseDown);
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [onDelete, onTap]);
 
   const style = offset
     ? { transform: `translateX(${offset}px)`, opacity: Math.max(1 - Math.abs(offset) / 320, 0.25) }
@@ -3610,13 +4095,10 @@ function SwipeRow({ children, onDelete, onTap, className, title }) {
 
   return (
     <tr
-      className={`swipe-row${offset ? " is-swiping" : ""}${onTap ? " clickable-row" : ""}${className ? " " + className : ""}`}
+      ref={rowRef}
+      className={`swipe-row${swiping ? " is-swiping" : ""}${onTap ? " clickable-row" : ""}${className ? " " + className : ""}`}
       style={style}
       title={title}
-      onPointerDown={begin}
-      onPointerMove={move}
-      onPointerUp={end}
-      onPointerCancel={end}
     >
       {children}
     </tr>
@@ -3863,6 +4345,10 @@ function ReportsIcon() {
 
 function DownloadIcon() {
   return <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M12 3v10.17l3.59-3.58L17 11l-5 5-5-5 1.41-1.41L12 13.17V3h0Zm-7 15h14v2H5v-2Z" fill="currentColor" /></svg>;
+}
+
+function MealPlanIcon() {
+  return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M8 2a1 1 0 0 0-1 1v1H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 1 0-2 0v1H9V3a1 1 0 0 0-1-1Zm10 6v11H6V8h12ZM8 10h4v2H8v-2Zm0 4h4v2H8v-2Zm6-4h2v2h-2v-2Zm0 4h2v2h-2v-2Z" fill="currentColor" /></svg>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
