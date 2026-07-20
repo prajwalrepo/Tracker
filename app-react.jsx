@@ -2409,6 +2409,7 @@ function App() {
                     <th>Target</th>
                     <th>Achieved</th>
                     <th className="icon-col">Sync</th>
+                    <th className="row-action-head" aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2416,14 +2417,14 @@ function App() {
                     const draftValue = tradeAchievedDrafts[trade.id];
                     const value = draftValue !== undefined ? draftValue : trade.achieved;
                     return (
-                      <SwipeRow key={trade.id} onDelete={() => deleteTrade(trade.id)}>
+                      <SelectableRow key={trade.id} title="Hold to select for delete" deleteLabel="Delete trade" onDelete={() => deleteTrade(trade.id)}>
                         <td>{formatShortDate(trade.date)}</td>
                         <td>{formatNumber(trade.target)}</td>
                         <td><input type="number" step="0.01" value={value ?? ""} onChange={(event) => setTradeAchievedDrafts((prev) => ({ ...prev, [trade.id]: event.target.value }))} onBlur={() => saveAchieved(trade.id)} /></td>
                         <td>{makeSyncIcon(trade.syncStatus)}</td>
-                      </SwipeRow>
+                      </SelectableRow>
                     );
-                  }) : <tr><td colSpan="4">No daily target rows for {formatMonthLabel(tradeMonth)}.</td></tr>}
+                  }) : <tr><td colSpan="5">No daily target rows for {formatMonthLabel(tradeMonth)}.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2668,13 +2669,14 @@ function App() {
                     <th>Quantity</th>
                     <th>Invested</th>
                     <th className="icon-col">Sync</th>
+                    <th className="row-action-head" aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {stocksDesc.length ? stocksDesc.map((stock) => {
                     const invested = Number(stock.buyAmount || 0) * Number(stock.quantity || 0);
                     return (
-                      <SwipeRow key={stock.id} title="Swipe to delete" onDelete={() => deleteStock(stock.id)}>
+                      <SelectableRow key={stock.id} title="Hold to select for delete" deleteLabel="Delete stock" onDelete={() => deleteStock(stock.id)}>
                         <td>{stock.stockName || "-"}</td>
                         <td>{stock.category || "-"}</td>
                         <td>{formatNumber(stock.buyAmount)}</td>
@@ -2682,9 +2684,9 @@ function App() {
                         <td>{formatNumber(stock.quantity)}</td>
                         <td>{formatNumber(invested)}</td>
                         <td>{makeSyncIcon(stock.syncStatus)}</td>
-                      </SwipeRow>
+                      </SelectableRow>
                     );
-                  }) : <tr><td colSpan="7">No stocks saved yet.</td></tr>}
+                  }) : <tr><td colSpan="8">No stocks saved yet.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2766,7 +2768,7 @@ function App() {
                       <td>{entry.subgroup} - {entry.exercise}</td>
                       <td><input type="number" step="0.1" value={entry.weight ?? ""} onChange={(event) => updateWorkoutEntry(entry.id, "weight", event.target.value)} onBlur={() => saveWorkoutEntry(entry.id)} /></td>
                       <td>
-                        <select value={entry.unit || "kg"} onChange={(event) => updateWorkoutEntry(entry.id, "unit", event.target.value, true)}>
+                        <select className="unit-select" value={entry.unit || "kg"} onChange={(event) => updateWorkoutEntry(entry.id, "unit", event.target.value, true)}>
                           <option value="kg">kg</option>
                           <option value="lbs">lbs</option>
                         </select>
@@ -3025,6 +3027,7 @@ function App() {
                     <th>Fat</th>
                     <th>Calories</th>
                     <th className="icon-col">Eaten</th>
+                    <th className="row-action-head" aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3039,9 +3042,12 @@ function App() {
                           ? "Eaten (sync failed) — click to undo"
                           : "Eaten (syncing…) — click to undo";
                     return (
-                      <tr
+                      <SelectableRow
                         key={item.id}
                         className={`diet-today-row${item.eaten ? " is-eaten" : ""}${synced ? " is-synced" : ""}`}
+                        title="Hold to select for delete"
+                        deleteLabel="Remove meal"
+                        onDelete={() => removePlanSlot(item.id)}
                       >
                         <td>{item.time ? formatPlanTime(item.time) : "-"}</td>
                         <td>{item.foodName} <small className="muted">({planServingLabel(item)})</small></td>
@@ -3057,9 +3063,9 @@ function App() {
                             onToggle={() => togglePlanEaten(item.id)}
                           />
                         </td>
-                      </tr>
+                      </SelectableRow>
                     );
-                  }) : <tr><td colSpan="7">No meals planned for {todayDayLabel}. Open the weekly plan to add some.</td></tr>}
+                  }) : <tr><td colSpan="8">No meals planned for {todayDayLabel}. Open the weekly plan to add some.</td></tr>}
                 </tbody>
               </table>
             </div>

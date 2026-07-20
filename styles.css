@@ -1474,6 +1474,11 @@ th {
   text-align: center;
 }
 
+.unit-select {
+  min-width: 68px;
+  padding-right: 1.6rem;
+}
+
 .sync-icon {
   display: inline-flex;
   align-items: center;
