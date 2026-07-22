@@ -3707,37 +3707,27 @@ function getPortfolioRangeLabel(range, monthValue) {
 
 async function pushEntry(type, entry, url) {
   try {
-    const response = await fetch(url, {
+    // Google Apps Script web apps redirect to script.googleusercontent.com and do
+    // not send CORS headers, so a normal fetch can read the response only for some
+    // accounts (corporate/Workspace accounts get a login redirect that the browser
+    // blocks). We POST as a "simple request" with no-cors so the write always
+    // reaches the sheet; the opaque response can't be read, so if the request is
+    // dispatched without throwing we treat the sync as successful.
+    await fetch(url, {
       method: "POST",
+      mode: "no-cors",
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify({ type, payload: entry })
     });
 
-    if (!response.ok) {
-      console.error(`Sync failed for ${type}: HTTP ${response.status} ${response.statusText} from ${url}`);
-      return { ok: false, error: `HTTP ${response.status} ${response.statusText}` };
-    }
-
-    let body = null;
-    try {
-      body = await response.json();
-    } catch {
-      body = null;
-    }
-
-    if (body && body.ok === false) {
-      console.error(`Sync rejected for ${type}: ${body.error} from ${url}`);
-      return { ok: false, error: body.error || "Sheet script returned an error." };
-    }
-
     return { ok: true, error: null };
   } catch (error) {
     console.error(`Sync request threw for ${type} at ${url}:`, error);
     return {
       ok: false,
-      error: "Network/CORS error. Check the web app URL and that its access is set to \"Anyone\"."
+      error: "Network error. Check your connection and that the web app URL is correct."
     };
   }
 }

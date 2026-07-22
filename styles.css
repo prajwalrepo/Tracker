@@ -1320,19 +1320,23 @@ select {
 }
 
 .row-action-head {
-  width: 78px;
+  width: 1px;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .row-action-cell {
-  width: 78px;
-  text-align: center;
-  padding: 0.35rem 0.4rem;
+  width: 1px;
+  white-space: nowrap;
+  text-align: right;
+  padding: 0.35rem 0;
 }
 
 .row-action-inner {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 0 8px;
 }
 
 .row-delete-btn,
